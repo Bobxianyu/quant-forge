@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "reportCutoffTime": "08:50:00",
+  "strongPremiumThresholdPct": 2.0,
+  "risk": {
+    "redNewsImpactLevel": 5,
+    "redNewsConfidence": 0.8,
+    "redNewsSourceCount": 2,
+    "orangeNewsImpactLevel": 4,
+    "orangeNewsConfidence": 0.7,
+    "orangeNewsSourceCount": 2,
+    "yellowNewsImpactLevel": 3,
+    "yellowNewsConfidence": 0.6,
+    "orangeUsIndexDropPct": -3.0,
+    "orangeA50DropPct": -2.5,
+    "yellowUsIndexDropPct": -1.5,
+    "yellowA50DropPct": -1.5
+  },
+  "positions": {
+    "A": {"total": [50, 80], "single": [20, 30]},
+    "B": {"total": [20, 50], "single": [10, 20]},
+    "C": {"total": [0, 20], "single": [0, 10]},
+    "D": {"total": [0, 0], "single": [0, 0]}
+  }
+}
+
