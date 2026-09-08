@@ -202,7 +202,7 @@ class PreMarketDecision:
   report_date: date
   generated_at: datetime
   cutoff_at: datetime
-  environment: EnvironmentAssessment
+  environment: EnvironmentAssessment | None
   risk: RiskAssessment
   position: PositionDecision
   sector_outlooks: tuple[SectorOutlook, ...]
