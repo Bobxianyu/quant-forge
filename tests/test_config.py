@@ -6,7 +6,7 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from quant_forge.config import config_snapshot_id, load_decision_config
+from quant_forge.config import config_snapshot_id, load_decision_config, validate_decision_config
 from quant_forge.domain.models import MarketPremiumSnapshot, PermissionGrade, RiskLevel
 from quant_forge.rules.environment import assess_environment
 from quant_forge.rules.position import decide_position
@@ -121,3 +121,38 @@ def test_crowding_adjustment_cannot_exceed_ten(tmp_path: Path) -> None:
     assert "零至十" in str(error)
   else:
     raise AssertionError("超出规格的拥挤度调整必须被拒绝")
+
+
+def test_direct_config_cannot_disable_external_market_monitoring() -> None:
+  """直接对象注入不能用空集合关闭全部外围风险监控。"""
+  config = load_decision_config(Path("config/defaults.json"))
+  changed = replace(
+    config,
+    risk=replace(config.risk, us_index_symbols=frozenset(), a50_symbols=frozenset()),
+  )
+
+  try:
+    validate_decision_config(changed)
+  except ValueError as error:
+    assert "非空不可变集合" in str(error)
+  else:
+    raise AssertionError("空外围标的集合必须被拒绝")
+
+
+def test_direct_config_requires_version_and_strict_integer_fields() -> None:
+  """公共校验器必须拒绝空版本和小数型计数字段。"""
+  config = load_decision_config(Path("config/defaults.json"))
+  try:
+    validate_decision_config(replace(config, version=""))
+  except ValueError as error:
+    assert "配置版本" in str(error)
+  else:
+    raise AssertionError("空配置版本必须被拒绝")
+
+  changed = replace(config, sector=replace(config.sector, output_limit=3.5))
+  try:
+    validate_decision_config(changed)
+  except ValueError as error:
+    assert "outputLimit" in str(error)
+  else:
+    raise AssertionError("小数型板块输出数量必须被拒绝")

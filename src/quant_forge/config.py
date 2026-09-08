@@ -230,13 +230,35 @@ def _sector_config(raw: dict[str, Any]) -> SectorRuleConfig:
 
 def validate_decision_config(config: DecisionConfig) -> None:
   """校验会影响交易权限的关键配置不变量。"""
+  if not isinstance(config.version, str) or not config.version.strip():
+    raise ValueError("配置版本不能为空")
   if config.report_cutoff_time != "08:50:00":
     raise ValueError("正式报告截止时间必须为 08:50:00")
-  if config.environment.strong_premium_threshold_pct <= 0:
-    raise ValueError("强溢价阈值必须大于零")
+  _validate_symbol_set(config.risk.us_index_symbols, "usIndexSymbols")
+  _validate_symbol_set(config.risk.a50_symbols, "a50Symbols")
+  if config.risk.us_index_symbols & config.risk.a50_symbols:
+    raise ValueError("美股指数与 A50 标的集合不能重叠")
+  integer_fields = (
+    ("redNewsImpactLevel", config.risk.red_news_impact_level),
+    ("redNewsSourceCount", config.risk.red_news_source_count),
+    ("orangeNewsImpactLevel", config.risk.orange_news_impact_level),
+    ("orangeNewsSourceCount", config.risk.orange_news_source_count),
+    ("yellowNewsImpactLevel", config.risk.yellow_news_impact_level),
+    ("outputLimit", config.sector.output_limit),
+    ("maxLimitUpCount", config.sector.max_limit_up_count),
+    ("maxPersistenceDays", config.sector.max_persistence_days),
+    ("continuationPersistenceDays", config.sector.continuation_persistence_days),
+  )
+  for name, value in integer_fields:
+    if type(value) is not int:
+      raise ValueError(f"配置字段 {name} 必须为整数")
   numeric_values = _numeric_config_values(config)
+  if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in numeric_values):
+    raise ValueError("规则配置中的数值必须为数字")
   if not all(math.isfinite(value) for value in numeric_values):
     raise ValueError("规则配置中的数值必须为有限数")
+  if config.environment.strong_premium_threshold_pct <= 0:
+    raise ValueError("强溢价阈值必须大于零")
   if config.sector.output_limit < 0:
     raise ValueError("板块输出数量不能为负数")
   if config.sector.max_limit_up_count <= 0:
@@ -339,6 +361,14 @@ def _validate_risk_and_sector_config(config: DecisionConfig) -> None:
   )
   if abs(weight_total - 0.90) > 1e-9:
     raise ValueError("板块基础权重之和必须为 0.90")
+
+
+def _validate_symbol_set(value: object, field_name: str) -> None:
+  """确保公共对象入口不能用空集合关闭外围风险监控。"""
+  if not isinstance(value, frozenset) or not value:
+    raise ValueError(f"配置字段 {field_name} 必须为非空不可变集合")
+  if any(not isinstance(item, str) or not item.strip() or item != item.strip().upper() for item in value):
+    raise ValueError(f"配置字段 {field_name} 必须包含非空大写标的代码")
 
 
 def _json_default(value: object) -> object:
