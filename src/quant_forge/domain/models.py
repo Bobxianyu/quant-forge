@@ -216,4 +216,5 @@ class PreMarketDecision:
   input_snapshot_ids: tuple[str, ...] = ()
   rule_version: str = "1.0.0"
   config_version: str = "1.0.0"
+  config_snapshot_id: str = ""
   metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)

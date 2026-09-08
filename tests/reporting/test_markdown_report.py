@@ -61,5 +61,5 @@ def test_markdown_contains_threshold_evidence_and_escapes_input() -> None:
   content = render_markdown(decision)
 
   assert "## 规则证据" in content
-  assert "strongPremiumThresholdPct" in content
+  assert "positivePremiumCount" in content
   assert "\\# 伪标题 \\[链接\\](危险)" in content

@@ -18,7 +18,7 @@ from quant_forge.adapters.csv_adapter import (
   load_news_events,
   load_sectors,
 )
-from quant_forge.config import load_decision_config
+from quant_forge.config import load_decision_config, load_default_config
 from quant_forge.domain.models import PreMarketDecision
 from quant_forge.pipeline import build_insufficient_decision, build_pre_market_decision
 from quant_forge.reporting.markdown_report import decision_to_dict, render_markdown
@@ -46,7 +46,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
       config_path=parsed.config,
       publish=parsed.publish,
     )
-  except (DataValidationError, OSError, ValueError) as error:
+  except (DataValidationError, OSError, TypeError, ValueError) as error:
     print(f"生成盘前报告失败：{error}", file=sys.stderr)
     return 1
   return 0
@@ -88,9 +88,32 @@ def _run_report(
   """加载约定文件、运行规则管道并写出正式报告与不可覆盖历史版本。"""
   if not input_dir.is_dir():
     raise ValueError(f"输入目录不存在：{input_dir}")
-  config = load_decision_config(config_path)
-  cutoff = datetime.combine(report_date, time.fromisoformat(config.report_cutoff_time), tzinfo=CHINA_TIMEZONE)
   generated_at = datetime.now(CHINA_TIMEZONE)
+  try:
+    config = load_decision_config(config_path)
+  except (TypeError, ValueError) as error:
+    fallback = load_default_config()
+    cutoff = datetime.combine(
+      report_date,
+      time.fromisoformat(fallback.report_cutoff_time),
+      tzinfo=CHINA_TIMEZONE,
+    )
+    decision = build_insufficient_decision(
+      report_date=report_date,
+      generated_at=generated_at,
+      cutoff_at=cutoff,
+      issues=(f"decisionConfig: {error}",),
+      config=fallback,
+    )
+    _write_reports(
+      output_dir,
+      decision,
+      input_dir=input_dir,
+      config_path=config_path,
+      publish=publish,
+    )
+    return
+  cutoff = datetime.combine(report_date, time.fromisoformat(config.report_cutoff_time), tzinfo=CHINA_TIMEZONE)
   try:
     market_premium = load_market_premium(input_dir / "market-premium.csv")
   except DataValidationError as error:
@@ -171,7 +194,8 @@ def _write_reports(
   history_dir.mkdir(parents=True, exist_ok=False)
   _write_text(history_dir / JSON_REPORT_NAME, json_content)
   _write_text(history_dir / MARKDOWN_REPORT_NAME, markdown_content)
-  shutil.copyfile(config_path, history_dir / "decision-config.json")
+  if config_path.is_file():
+    shutil.copyfile(config_path, history_dir / "decision-config.json")
   history_input_dir = history_dir / "inputs"
   history_input_dir.mkdir()
   for file_name in (

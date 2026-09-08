@@ -119,10 +119,12 @@ def _read_rows(
       if missing:
         label = "核心字段" if core_fields else "字段"
         raise DataValidationError(f"{path}: 缺少{label}：{', '.join(missing)}")
-      rows = tuple((line_number, dict(row)) for line_number, row in enumerate(reader, start=2))
-      if len(rows) > MAX_CSV_ROWS:
-        raise DataValidationError(f"{path}: 数据行数超过上限 {MAX_CSV_ROWS}")
-      return rows
+      rows: list[tuple[int, dict[str, str]]] = []
+      for line_number, row in enumerate(reader, start=2):
+        if len(rows) >= MAX_CSV_ROWS:
+          raise DataValidationError(f"{path}: 数据行数超过上限 {MAX_CSV_ROWS}")
+        rows.append((line_number, dict(row)))
+      return tuple(rows)
   except OSError as error:
     raise DataValidationError(f"{path}: 无法读取文件：{error}") from error
   except UnicodeError as error:

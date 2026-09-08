@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from quant_forge.config import DecisionConfig, load_default_config
+from quant_forge.config import DecisionConfig, config_snapshot_id, load_default_config
 from quant_forge.domain.models import (
   ExternalMarketSnapshot,
   MarketPremiumSnapshot,
@@ -44,6 +44,14 @@ def build_pre_market_decision(
 ) -> PreMarketDecision:
   """只使用实际生成时刻和正式截止时间之前的数据生成盘前决策。"""
   rules = config or load_default_config()
+  if expected_market_date >= report_date:
+    return build_insufficient_decision(
+      report_date=report_date,
+      generated_at=generated_at,
+      cutoff_at=cutoff_at,
+      issues=tuple(dict.fromkeys((*input_issues, "expectedMarketDate"))),
+      config=rules,
+    )
   cutoff_issues = _cutoff_issues(report_date, cutoff_at)
   try:
     _require_aware_datetime(generated_at, "generatedAt")
@@ -60,7 +68,6 @@ def build_pre_market_decision(
 
   as_of = min(generated_at, cutoff_at)
   core_issues = _core_data_issues(
-    report_date,
     expected_market_date,
     as_of,
     cutoff_at,
@@ -121,6 +128,7 @@ def build_pre_market_decision(
     input_snapshot_ids=_snapshot_ids(market_premium, usable_markets, usable_news, usable_sectors),
     rule_version=DEFAULT_RULE_VERSION,
     config_version=rules.version,
+    config_snapshot_id=config_snapshot_id(rules),
   )
 
 
@@ -151,6 +159,7 @@ def build_insufficient_decision(
     input_snapshot_ids=snapshot_ids,
     rule_version=DEFAULT_RULE_VERSION,
     config_version=config.version,
+    config_snapshot_id=config_snapshot_id(config),
   )
 
 
@@ -167,7 +176,6 @@ def _cutoff_issues(report_date: date, cutoff_at: datetime) -> tuple[str, ...]:
 
 
 def _core_data_issues(
-  report_date: date,
   expected_market_date: date,
   as_of: datetime,
   cutoff_at: datetime,
@@ -181,8 +189,6 @@ def _core_data_issues(
     issues.append("marketPremium.collectedAt")
     return tuple(issues)
   if snapshot.collected_at > as_of or snapshot.collected_at >= cutoff_at:
-    issues.append("marketPremium.collectedAt")
-  if snapshot.collected_at.astimezone(CHINA_TIMEZONE).date() != report_date:
     issues.append("marketPremium.collectedAt")
   if snapshot.trade_date != expected_market_date:
     issues.append("marketPremium.tradeDate")
@@ -215,7 +221,7 @@ def _markets_before_as_of(
     except ValueError:
       issues.append(f"{market.symbol}.collectedAt")
       continue
-    if market.collected_at > as_of or market.collected_at >= cutoff_at:
+    if market.collected_at > as_of:
       issues.append("externalMarkets.afterAsOf")
       continue
     if market.market_date < expected_market_date or market.market_date > report_date:
@@ -241,7 +247,7 @@ def _news_before_as_of(
     except ValueError:
       issues.append(f"{event.event_id}.publishedAt")
       continue
-    if event.published_at > as_of or event.published_at >= cutoff_at:
+    if event.published_at > as_of:
       issues.append("newsEvents.afterAsOf")
       continue
     if not math.isfinite(event.sentiment) or not math.isfinite(event.confidence):

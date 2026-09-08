@@ -207,7 +207,8 @@
 
 ### 7.5 决策报告 `PreMarketDecision`
 
-除第 4 节全部输出外，还必须保存 `reportDate`、`generatedAt`、`cutoffAt`、`inputSnapshotIds`、`ruleVersion`、`configVersion` 和 `evidence`。证据项包含规则编号、实际值、比较阈值和对结果的影响。
+除第 4 节全部输出外，还必须保存 `reportDate`、`generatedAt`、`cutoffAt`、`inputSnapshotIds`、`ruleVersion`、
+`configVersion`、`configSnapshotId` 和 `evidence`。证据项包含规则编号、实际值、比较阈值和对结果的影响。
 
 ## 8. 数据质量和异常处理
 

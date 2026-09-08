@@ -44,7 +44,7 @@ def assess_risk(
     return _assessment(
       RiskLevel.RED,
       "RISK-RED-NEWS-001",
-      red_news.title,
+      red_news,
       positive_factors,
       negative_factors,
       missing_fields,
@@ -60,7 +60,7 @@ def assess_risk(
     return _assessment(
       RiskLevel.ORANGE,
       "RISK-ORANGE-NEWS-001",
-      orange_news.title,
+      orange_news,
       positive_factors,
       negative_factors,
       missing_fields,
@@ -88,7 +88,7 @@ def assess_risk(
     return _assessment(
       RiskLevel.YELLOW,
       "RISK-YELLOW-NEWS-001",
-      yellow_news.title,
+      yellow_news,
       positive_factors,
       negative_factors,
       missing_fields,
@@ -162,7 +162,7 @@ def _is_yellow_market(market: ExternalMarketSnapshot, config: RiskRuleConfig) ->
 def _assessment(
   level: RiskLevel,
   rule_id: str,
-  title: str,
+  event: NewsEvent,
   positive_factors: tuple[str, ...],
   negative_factors: tuple[str, ...],
   missing_fields: tuple[str, ...],
@@ -171,7 +171,13 @@ def _assessment(
   evidence = RuleEvidence(
     rule_id=rule_id,
     description="结构化新闻触发盘前风险闸门",
-    actual_values=(("title", title),),
+    actual_values=(
+      ("title", event.title),
+      ("impactLevel", str(event.impact_level)),
+      ("confidence", f"{event.confidence:.2f}"),
+      ("sourceCount", str(event.source_count)),
+      ("isMajorRisk", str(event.is_major_risk).lower()),
+    ),
     effect=f"风险等级={level.value}",
     thresholds=thresholds,
   )

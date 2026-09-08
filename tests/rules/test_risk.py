@@ -53,6 +53,8 @@ def test_red_risk_requires_major_high_confidence_negative_news() -> None:
   result = assess_risk([], [make_news()])
 
   assert result.level is RiskLevel.RED
+  assert ("impactLevel", "5") in result.evidence[0].actual_values
+  assert ("confidence", "0.90") in result.evidence[0].actual_values
 
 
 def test_nasdaq_drop_at_three_percent_triggers_orange() -> None:

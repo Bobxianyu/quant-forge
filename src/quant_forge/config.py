@@ -1,8 +1,9 @@
 """从版本化 JSON 加载全部可校准规则参数。"""
 
+import hashlib
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -118,13 +119,13 @@ def load_decision_config(path: Path) -> DecisionConfig:
       risk=RiskRuleConfig(
         us_index_symbols=_symbols(risk, "usIndexSymbols"),
         a50_symbols=_symbols(risk, "a50Symbols"),
-        red_news_impact_level=int(risk["redNewsImpactLevel"]),
+        red_news_impact_level=_strict_int(risk, "redNewsImpactLevel"),
         red_news_confidence=float(risk["redNewsConfidence"]),
-        red_news_source_count=int(risk["redNewsSourceCount"]),
-        orange_news_impact_level=int(risk["orangeNewsImpactLevel"]),
+        red_news_source_count=_strict_int(risk, "redNewsSourceCount"),
+        orange_news_impact_level=_strict_int(risk, "orangeNewsImpactLevel"),
         orange_news_confidence=float(risk["orangeNewsConfidence"]),
-        orange_news_source_count=int(risk["orangeNewsSourceCount"]),
-        yellow_news_impact_level=int(risk["yellowNewsImpactLevel"]),
+        orange_news_source_count=_strict_int(risk, "orangeNewsSourceCount"),
+        yellow_news_impact_level=_strict_int(risk, "yellowNewsImpactLevel"),
         yellow_news_confidence=float(risk["yellowNewsConfidence"]),
         orange_us_index_drop_pct=float(risk["orangeUsIndexDropPct"]),
         orange_a50_drop_pct=float(risk["orangeA50DropPct"]),
@@ -145,6 +146,19 @@ def load_default_config() -> DecisionConfig:
   """读取项目根目录中的默认版本化配置。"""
   project_root = Path(__file__).resolve().parents[2]
   return load_decision_config(project_root / "config" / "defaults.json")
+
+
+def config_snapshot_id(config: DecisionConfig) -> str:
+  """按配置真实内容生成稳定摘要，避免仅依赖自声明版本号。"""
+  content = json.dumps(
+    asdict(config),
+    ensure_ascii=False,
+    sort_keys=True,
+    separators=(",", ":"),
+    default=_json_default,
+  )
+  digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+  return f"config:sha256:{digest}"
 
 
 def _mapping(parent: dict[str, Any], key: str) -> dict[str, Any]:
@@ -182,7 +196,9 @@ def _position_range(raw: dict[str, Any], grade: str, kind: str) -> tuple[int, in
   value = grade_config[kind]
   if not isinstance(value, list) or len(value) != 2:
     raise TypeError(f"positions.{grade}.{kind} 必须包含两个整数")
-  result = (int(value[0]), int(value[1]))
+  if any(type(item) is not int for item in value):
+    raise TypeError(f"positions.{grade}.{kind} 必须包含两个整数")
+  result = (value[0], value[1])
   if result[0] < 0 or result[1] > 100 or result[0] > result[1]:
     raise ValueError(f"positions.{grade}.{kind} 区间无效")
   return result
@@ -190,14 +206,14 @@ def _position_range(raw: dict[str, Any], grade: str, kind: str) -> tuple[int, in
 
 def _sector_config(raw: dict[str, Any]) -> SectorRuleConfig:
   return SectorRuleConfig(
-    output_limit=int(raw["outputLimit"]),
+    output_limit=_strict_int(raw, "outputLimit"),
     relative_strength_min_pct=float(raw["relativeStrengthMinPct"]),
     relative_strength_max_pct=float(raw["relativeStrengthMaxPct"]),
-    max_limit_up_count=int(raw["maxLimitUpCount"]),
+    max_limit_up_count=_strict_int(raw, "maxLimitUpCount"),
     turnover_change_min_pct=float(raw["turnoverChangeMinPct"]),
     turnover_change_max_pct=float(raw["turnoverChangeMaxPct"]),
-    max_persistence_days=int(raw["maxPersistenceDays"]),
-    continuation_persistence_days=int(raw["continuationPersistenceDays"]),
+    max_persistence_days=_strict_int(raw, "maxPersistenceDays"),
+    continuation_persistence_days=_strict_int(raw, "continuationPersistenceDays"),
     crowded_risk_threshold=float(raw["crowdedRiskThreshold"]),
     weak_breadth_threshold=float(raw["weakBreadthThreshold"]),
     healthy_breadth_threshold=float(raw["healthyBreadthThreshold"]),
@@ -223,6 +239,20 @@ def _validate_config(config: DecisionConfig) -> None:
     raise ValueError("规则配置中的数值必须为有限数")
   if config.sector.output_limit < 0:
     raise ValueError("板块输出数量不能为负数")
+  if config.sector.max_limit_up_count <= 0:
+    raise ValueError("板块涨停家数归一化上限必须大于零")
+  if config.positions.grade_d_total != (0, 0) or config.positions.grade_d_single != (0, 0):
+    raise ValueError("D 级仓位必须固定为零")
+  if config.positions.grade_c_total[1] > 20 or config.positions.grade_c_single[1] > 10:
+    raise ValueError("C 级仓位不得突破总仓 20%、单笔 10% 的硬上限")
+  position_ranges = (
+    (config.positions.grade_a_total, config.positions.grade_a_single),
+    (config.positions.grade_b_total, config.positions.grade_b_single),
+    (config.positions.grade_c_total, config.positions.grade_c_single),
+    (config.positions.grade_d_total, config.positions.grade_d_single),
+  )
+  if any(single[1] > total[1] for total, single in position_ranges):
+    raise ValueError("单笔仓位上限不能超过账户总仓位上限")
   confidence_values = (
     config.risk.red_news_confidence,
     config.risk.orange_news_confidence,
@@ -232,6 +262,19 @@ def _validate_config(config: DecisionConfig) -> None:
     raise ValueError("新闻可信度阈值必须位于零至一之间")
   if min(config.risk.red_news_source_count, config.risk.orange_news_source_count) < 1:
     raise ValueError("新闻来源数量阈值必须至少为一")
+  if config.risk.red_news_source_count < config.risk.orange_news_source_count:
+    raise ValueError("红色新闻来源数量阈值不能低于橙色阈值")
+  impact_levels = (
+    config.risk.red_news_impact_level,
+    config.risk.orange_news_impact_level,
+    config.risk.yellow_news_impact_level,
+  )
+  if not all(1 <= value <= 5 for value in impact_levels):
+    raise ValueError("新闻影响级别阈值必须位于一至五之间")
+  if impact_levels[0] < impact_levels[1] or impact_levels[1] < impact_levels[2]:
+    raise ValueError("红橙黄新闻影响级别必须依次不升高")
+  if confidence_values[0] < confidence_values[1] or confidence_values[1] < confidence_values[2]:
+    raise ValueError("红橙黄新闻可信度必须依次不升高")
   if max(
     config.risk.orange_us_index_drop_pct,
     config.risk.orange_a50_drop_pct,
@@ -239,6 +282,10 @@ def _validate_config(config: DecisionConfig) -> None:
     config.risk.yellow_a50_drop_pct,
   ) >= 0:
     raise ValueError("外围市场跌幅阈值必须小于零")
+  if config.risk.orange_us_index_drop_pct > config.risk.yellow_us_index_drop_pct:
+    raise ValueError("美股橙色跌幅阈值必须严于黄色阈值")
+  if config.risk.orange_a50_drop_pct > config.risk.yellow_a50_drop_pct:
+    raise ValueError("A50 橙色跌幅阈值必须严于黄色阈值")
   if config.sector.relative_strength_min_pct >= config.sector.relative_strength_max_pct:
     raise ValueError("板块相对强度最小值必须小于最大值")
   if config.sector.turnover_change_min_pct >= config.sector.turnover_change_max_pct:
@@ -267,6 +314,21 @@ def _validate_config(config: DecisionConfig) -> None:
   )
   if abs(weight_total - 0.90) > 1e-9:
     raise ValueError("板块基础权重之和必须为 0.90")
+
+
+def _json_default(value: object) -> object:
+  """把无序集合稳定转换为列表供配置摘要使用。"""
+  if isinstance(value, (set, frozenset)):
+    return sorted(value)
+  raise TypeError(f"无法序列化配置值：{type(value).__name__}")
+
+
+def _strict_int(parent: dict[str, Any], key: str) -> int:
+  """拒绝布尔值和会被 int 静默截断的小数。"""
+  value = parent[key]
+  if type(value) is not int:
+    raise TypeError(f"{key} 必须为整数")
+  return value
 
 
 def _reject_json_constant(value: str) -> None:

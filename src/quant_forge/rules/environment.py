@@ -30,29 +30,27 @@ def assess_environment(
   market_style, style_rule = _classify_style(snapshot, all_negative, rules)
   permission_grade, permission_rule = _classify_permission(snapshot, all_negative, rules)
   actual_values = tuple((name, f"{value:.2f}%") for name, value in values.items())
-  thresholds = (("strongPremiumThresholdPct", f"{rules.strong_premium_threshold_pct:.2f}%"),)
-
   evidence = (
     RuleEvidence(
       rule_id=environment_rule,
       description="根据四项短线溢价判断全市场环境",
       actual_values=actual_values,
       effect=f"市场环境={environment.value}",
-      thresholds=thresholds,
+      thresholds=_environment_thresholds(environment),
     ),
     RuleEvidence(
       rule_id=style_rule,
       description="根据首板、二板和多板相对强弱判断市场风格",
       actual_values=actual_values,
       effect=f"市场风格={market_style.value}",
-      thresholds=thresholds,
+      thresholds=_style_thresholds(market_style, rules),
     ),
     RuleEvidence(
       rule_id=permission_rule,
       description="根据首板模式匹配度生成基础开仓权限",
       actual_values=actual_values,
       effect=f"基础权限={permission_grade.value}",
-      thresholds=thresholds,
+      thresholds=_permission_thresholds(permission_grade, rules),
     ),
   )
 
@@ -73,6 +71,46 @@ def _premium_values(snapshot: MarketPremiumSnapshot) -> dict[str, float]:
     "M": snapshot.multi_board_premium_pct,
     "L": snapshot.limit_up_premium_pct,
   }
+
+
+def _environment_thresholds(environment: MarketEnvironment) -> tuple[tuple[str, str], ...]:
+  """返回命中环境分支的精确比较条件。"""
+  if environment is MarketEnvironment.EBB_TIDE:
+    return (("F/S/M/L", "全部 < 0%"),)
+  if environment is MarketEnvironment.PROFIT_EFFECT:
+    return (("positivePremiumCount", "至少 3"), ("L", "> 0%"))
+  return (("classification", "不满足赚钱效应或全面退潮"),)
+
+
+def _style_thresholds(
+  style: MarketStyle,
+  config: EnvironmentRuleConfig,
+) -> tuple[tuple[str, str], ...]:
+  """返回命中风格分支的精确比较条件。"""
+  strong = f"{config.strong_premium_threshold_pct:.2f}%"
+  conditions = {
+    MarketStyle.BROAD_EBB_TIDE: (("F/S/M/L", "全部 < 0%"),),
+    MarketStyle.HIGH_LOW_SWITCH: (("F", f"> {strong}"), ("S", "< 0%"), ("M", "< 0%")),
+    MarketStyle.RELAY: (("S", f"> {strong}"), ("M", f"> {strong}"), ("F", f"<= {strong}")),
+    MarketStyle.FIRST_BOARD_ARBITRAGE: (("F", f"> {strong}"), ("L", "> 0%")),
+    MarketStyle.MIXED: (("classification", "不满足其他风格分支"),),
+  }
+  return conditions[style]
+
+
+def _permission_thresholds(
+  grade: PermissionGrade,
+  config: EnvironmentRuleConfig,
+) -> tuple[tuple[str, str], ...]:
+  """返回命中基础权限分支的精确比较条件。"""
+  strong = f"{config.strong_premium_threshold_pct:.2f}%"
+  conditions = {
+    PermissionGrade.A: (("F", f"> {strong}"), ("L", f"> {strong}"), ("M", ">= 0%")),
+    PermissionGrade.B: (("F", f"0%～{strong}"), ("L", "> 0%")),
+    PermissionGrade.C: (("classification", "不满足 A/B/D"),),
+    PermissionGrade.D: (("F/S/M/L", "全部 < 0%"),),
+  }
+  return conditions[grade]
 
 
 def _classify_environment(

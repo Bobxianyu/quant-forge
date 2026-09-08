@@ -108,3 +108,33 @@ def test_cli_missing_non_core_files_keeps_environment_with_lower_confidence(tmp_
   assert exit_code == 0
   assert result["status"] == "READY"
   assert result["confidence"] < 1
+
+
+def test_cli_invalid_config_publishes_zero_position_report(tmp_path: Path) -> None:
+  """非法外部配置不得留下旧交易许可，发布时应覆盖为 D 级零仓位。"""
+  raw = json.loads(Path("config/defaults.json").read_text(encoding="utf-8"))
+  raw["positions"]["D"]["total"] = [0, 100]
+  config_path = tmp_path / "unsafe.json"
+  config_path.write_text(json.dumps(raw), encoding="utf-8", newline="\n")
+
+  exit_code = main(
+    [
+      "run",
+      "--input-dir",
+      "data/examples",
+      "--output-dir",
+      str(tmp_path / "output"),
+      "--report-date",
+      "2026-09-08",
+      "--previous-trade-date",
+      "2026-09-07",
+      "--config",
+      str(config_path),
+      "--publish",
+    ],
+  )
+
+  result = json.loads((tmp_path / "output" / "pre-market-decision.json").read_text(encoding="utf-8"))
+  assert exit_code == 0
+  assert result["status"] == "INSUFFICIENT_DATA"
+  assert result["position"]["total"]["maximum"] == 0
