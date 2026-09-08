@@ -1,7 +1,10 @@
 """风险调整后的双层仓位测试。"""
 
+from dataclasses import replace
+
 import pytest
 
+from quant_forge.config import load_default_config
 from quant_forge.domain.models import Action, PermissionGrade, RiskLevel
 from quant_forge.rules.position import decide_position
 
@@ -66,3 +69,27 @@ def test_positive_adjustment_can_upgrade_grade_c_to_b() -> None:
   result = decide_position(PermissionGrade.C, RiskLevel.NONE, positive_adjustment=True)
 
   assert result.final_grade is PermissionGrade.B
+
+
+def test_direct_config_cannot_expand_d_grade_position() -> None:
+  """直接构造配置对象也不能绕过 D 级零仓位硬约束。"""
+  config = replace(
+    load_default_config().positions,
+    grade_d_total=(0, 100),
+    grade_d_single=(0, 100),
+  )
+
+  with pytest.raises(ValueError, match="D 级仓位"):
+    decide_position(PermissionGrade.A, RiskLevel.RED, config)
+
+
+def test_direct_config_cannot_expand_c_grade_position() -> None:
+  """直接构造配置对象也不能放宽橙色风险的 C 级仓位上限。"""
+  config = replace(
+    load_default_config().positions,
+    grade_c_total=(0, 80),
+    grade_c_single=(0, 80),
+  )
+
+  with pytest.raises(ValueError, match="C 级仓位"):
+    decide_position(PermissionGrade.A, RiskLevel.ORANGE, config)

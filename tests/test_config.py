@@ -106,3 +106,18 @@ def test_fractional_integer_config_is_rejected(tmp_path: Path) -> None:
     assert "必须为整数" in str(error)
   else:
     raise AssertionError("小数型整数配置必须被拒绝")
+
+
+def test_crowding_adjustment_cannot_exceed_ten(tmp_path: Path) -> None:
+  """拥挤度贡献必须被限制在正负十分范围内。"""
+  raw = json.loads(Path("config/defaults.json").read_text(encoding="utf-8"))
+  raw["sector"]["crowdingMaxAdjustment"] = 11
+  path = tmp_path / "unsafe.json"
+  path.write_text(json.dumps(raw), encoding="utf-8", newline="\n")
+
+  try:
+    load_decision_config(path)
+  except ValueError as error:
+    assert "零至十" in str(error)
+  else:
+    raise AssertionError("超出规格的拥挤度调整必须被拒绝")

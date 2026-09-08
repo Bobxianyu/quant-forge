@@ -137,7 +137,7 @@ def load_decision_config(path: Path) -> DecisionConfig:
     )
   except (KeyError, TypeError, ValueError) as error:
     raise ValueError(f"规则配置字段错误：{error}") from error
-  _validate_config(result)
+  validate_decision_config(result)
   return result
 
 
@@ -228,7 +228,7 @@ def _sector_config(raw: dict[str, Any]) -> SectorRuleConfig:
   )
 
 
-def _validate_config(config: DecisionConfig) -> None:
+def validate_decision_config(config: DecisionConfig) -> None:
   """校验会影响交易权限的关键配置不变量。"""
   if config.report_cutoff_time != "08:50:00":
     raise ValueError("正式报告截止时间必须为 08:50:00")
@@ -241,18 +241,28 @@ def _validate_config(config: DecisionConfig) -> None:
     raise ValueError("板块输出数量不能为负数")
   if config.sector.max_limit_up_count <= 0:
     raise ValueError("板块涨停家数归一化上限必须大于零")
-  if config.positions.grade_d_total != (0, 0) or config.positions.grade_d_single != (0, 0):
+  validate_position_config(config.positions)
+  _validate_risk_and_sector_config(config)
+
+
+def validate_position_config(config: PositionRuleConfig) -> None:
+  """在仓位引擎边界强制校验不可配置的风险硬上限。"""
+  if config.grade_d_total != (0, 0) or config.grade_d_single != (0, 0):
     raise ValueError("D 级仓位必须固定为零")
-  if config.positions.grade_c_total[1] > 20 or config.positions.grade_c_single[1] > 10:
+  if config.grade_c_total[1] > 20 or config.grade_c_single[1] > 10:
     raise ValueError("C 级仓位不得突破总仓 20%、单笔 10% 的硬上限")
   position_ranges = (
-    (config.positions.grade_a_total, config.positions.grade_a_single),
-    (config.positions.grade_b_total, config.positions.grade_b_single),
-    (config.positions.grade_c_total, config.positions.grade_c_single),
-    (config.positions.grade_d_total, config.positions.grade_d_single),
+    (config.grade_a_total, config.grade_a_single),
+    (config.grade_b_total, config.grade_b_single),
+    (config.grade_c_total, config.grade_c_single),
+    (config.grade_d_total, config.grade_d_single),
   )
   if any(single[1] > total[1] for total, single in position_ranges):
     raise ValueError("单笔仓位上限不能超过账户总仓位上限")
+
+
+def _validate_risk_and_sector_config(config: DecisionConfig) -> None:
+  """校验风险闸门与板块评分的范围、层级和除数。"""
   confidence_values = (
     config.risk.red_news_confidence,
     config.risk.orange_news_confidence,
@@ -298,8 +308,8 @@ def _validate_config(config: DecisionConfig) -> None:
   )
   if not all(0 <= value <= 100 for value in percentage_thresholds):
     raise ValueError("板块百分制阈值必须位于零至一百之间")
-  if config.sector.crowding_max_adjustment < 0:
-    raise ValueError("拥挤度最大调整值不能为负数")
+  if not 0 <= config.sector.crowding_max_adjustment <= 10:
+    raise ValueError("拥挤度最大调整值必须位于零至十之间")
   if config.sector.max_persistence_days <= 0:
     raise ValueError("最大持续天数必须大于零")
   if not 0 <= config.sector.continuation_persistence_days <= config.sector.max_persistence_days:

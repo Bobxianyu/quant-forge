@@ -138,3 +138,6 @@ def test_cli_invalid_config_publishes_zero_position_report(tmp_path: Path) -> No
   assert exit_code == 0
   assert result["status"] == "INSUFFICIENT_DATA"
   assert result["position"]["total"]["maximum"] == 0
+  history_run = next((tmp_path / "output" / "history" / "2026-09-08").iterdir())
+  assert (history_run / "decision-config.json").exists()
+  assert (history_run / "rejected-config.json").exists()

@@ -109,7 +109,8 @@ def _run_report(
       output_dir,
       decision,
       input_dir=input_dir,
-      config_path=config_path,
+      config_path=DEFAULT_CONFIG_PATH,
+      rejected_config_path=config_path,
       publish=publish,
     )
     return
@@ -184,6 +185,7 @@ def _write_reports(
   input_dir: Path,
   config_path: Path,
   publish: bool,
+  rejected_config_path: Path | None = None,
 ) -> None:
   """写正式文件，并按内容摘要保存不可覆盖的历史副本。"""
   output_dir.mkdir(parents=True, exist_ok=True)
@@ -196,6 +198,8 @@ def _write_reports(
   _write_text(history_dir / MARKDOWN_REPORT_NAME, markdown_content)
   if config_path.is_file():
     shutil.copyfile(config_path, history_dir / "decision-config.json")
+  if rejected_config_path is not None and rejected_config_path.is_file():
+    shutil.copyfile(rejected_config_path, history_dir / "rejected-config.json")
   history_input_dir = history_dir / "inputs"
   history_input_dir.mkdir()
   for file_name in (

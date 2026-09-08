@@ -1,6 +1,6 @@
 """将基础权限和风险闸门转换为双层仓位限制。"""
 
-from quant_forge.config import PositionRuleConfig, load_default_config
+from quant_forge.config import PositionRuleConfig, load_default_config, validate_position_config
 from quant_forge.domain.models import Action, PermissionGrade, PositionDecision, PositionRange, RiskLevel, RuleEvidence
 
 GRADE_ORDER = (
@@ -18,6 +18,7 @@ def decide_position(
 ) -> PositionDecision:
   """先应用有限正向修正，再让风险闸门强制降级或封顶。"""
   rules = config or load_default_config().positions
+  validate_position_config(rules)
   adjusted_grade = _apply_positive_adjustment(base_grade, risk_level, positive_adjustment)
   final_grade = _apply_risk_gate(adjusted_grade, risk_level)
   action, total, single = _position_limits(rules)[final_grade]

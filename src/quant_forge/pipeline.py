@@ -6,7 +6,12 @@ from collections.abc import Iterable
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from quant_forge.config import DecisionConfig, config_snapshot_id, load_default_config
+from quant_forge.config import (
+  DecisionConfig,
+  config_snapshot_id,
+  load_default_config,
+  validate_decision_config,
+)
 from quant_forge.domain.models import (
   ExternalMarketSnapshot,
   MarketPremiumSnapshot,
@@ -44,6 +49,7 @@ def build_pre_market_decision(
 ) -> PreMarketDecision:
   """只使用实际生成时刻和正式截止时间之前的数据生成盘前决策。"""
   rules = config or load_default_config()
+  validate_decision_config(rules)
   if expected_market_date >= report_date:
     return build_insufficient_decision(
       report_date=report_date,
@@ -142,6 +148,7 @@ def build_insufficient_decision(
   market_premium: MarketPremiumSnapshot | None = None,
 ) -> PreMarketDecision:
   """配置已知但核心数据不可信时生成 D 级零仓位安全报告。"""
+  validate_decision_config(config)
   unique_issues = tuple(dict.fromkeys(issues))
   snapshot_ids = () if market_premium is None else (_snapshot_id("market", market_premium),)
   risk = RiskAssessment(level=RiskLevel.NONE, missing_fields=unique_issues)
