@@ -49,6 +49,8 @@ def assess_risk(
       negative_factors,
       missing_fields,
       (
+        ("sentiment", "< 0"),
+        ("isMajorRisk", "true"),
         ("impactLevel", str(rules.red_news_impact_level)),
         ("confidence", f"{rules.red_news_confidence:.2f}"),
         ("sourceCount", str(rules.red_news_source_count)),
@@ -65,6 +67,7 @@ def assess_risk(
       negative_factors,
       missing_fields,
       (
+        ("sentiment", "< 0"),
         ("impactLevel", str(rules.orange_news_impact_level)),
         ("confidence", f"{rules.orange_news_confidence:.2f}"),
         ("sourceCount", str(rules.orange_news_source_count)),
@@ -93,6 +96,7 @@ def assess_risk(
       negative_factors,
       missing_fields,
       (
+        ("sentiment", "< 0"),
         ("impactLevel", str(rules.yellow_news_impact_level)),
         ("confidence", f"{rules.yellow_news_confidence:.2f}"),
       ),
