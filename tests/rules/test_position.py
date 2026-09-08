@@ -93,3 +93,15 @@ def test_direct_config_cannot_expand_c_grade_position() -> None:
 
   with pytest.raises(ValueError, match="C 级仓位"):
     decide_position(PermissionGrade.A, RiskLevel.ORANGE, config)
+
+
+@pytest.mark.parametrize(
+  "invalid_range",
+  [(0, 1000), (-10, 50), (80, 50), (0.5, 80)],
+)
+def test_direct_config_rejects_invalid_position_ranges(invalid_range: tuple[object, object]) -> None:
+  """所有直接注入的仓位区间都必须是零至一百内的有序整数。"""
+  config = replace(load_default_config().positions, grade_a_total=invalid_range)
+
+  with pytest.raises(ValueError, match="仓位区间 A.total"):
+    decide_position(PermissionGrade.A, RiskLevel.NONE, config)

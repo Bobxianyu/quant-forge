@@ -247,17 +247,32 @@ def validate_decision_config(config: DecisionConfig) -> None:
 
 def validate_position_config(config: PositionRuleConfig) -> None:
   """在仓位引擎边界强制校验不可配置的风险硬上限。"""
+  named_ranges = (
+    ("A.total", config.grade_a_total),
+    ("A.single", config.grade_a_single),
+    ("B.total", config.grade_b_total),
+    ("B.single", config.grade_b_single),
+    ("C.total", config.grade_c_total),
+    ("C.single", config.grade_c_single),
+    ("D.total", config.grade_d_total),
+    ("D.single", config.grade_d_single),
+  )
+  for name, value in named_ranges:
+    if not isinstance(value, tuple) or len(value) != 2 or any(type(item) is not int for item in value):
+      raise ValueError(f"仓位区间 {name} 必须包含两个整数")
+    if value[0] < 0 or value[1] > 100 or value[0] > value[1]:
+      raise ValueError(f"仓位区间 {name} 必须满足 0 <= 最小值 <= 最大值 <= 100")
   if config.grade_d_total != (0, 0) or config.grade_d_single != (0, 0):
     raise ValueError("D 级仓位必须固定为零")
   if config.grade_c_total[1] > 20 or config.grade_c_single[1] > 10:
     raise ValueError("C 级仓位不得突破总仓 20%、单笔 10% 的硬上限")
-  position_ranges = (
+  grade_ranges = (
     (config.grade_a_total, config.grade_a_single),
     (config.grade_b_total, config.grade_b_single),
     (config.grade_c_total, config.grade_c_single),
     (config.grade_d_total, config.grade_d_single),
   )
-  if any(single[1] > total[1] for total, single in position_ranges):
+  if any(single[1] > total[1] for total, single in grade_ranges):
     raise ValueError("单笔仓位上限不能超过账户总仓位上限")
 
 
