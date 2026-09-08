@@ -2,63 +2,60 @@
 
 from collections.abc import Iterable
 
+from quant_forge.config import SectorRuleConfig, load_default_config
 from quant_forge.domain.models import RuleEvidence, SectorOutlook, SectorSnapshot, SectorTrend
-
-MAX_RELATIVE_STRENGTH_PCT = 5.0
-MIN_RELATIVE_STRENGTH_PCT = -5.0
-MAX_LIMIT_UP_COUNT = 10
-MAX_TURNOVER_CHANGE_PCT = 50.0
-MIN_TURNOVER_CHANGE_PCT = -50.0
-MAX_PERSISTENCE_DAYS = 5
-CROWDED_RISK_THRESHOLD = 80.0
-WEAK_BREADTH_THRESHOLD = 40.0
-HEALTHY_BREADTH_THRESHOLD = 50.0
-STRONG_CATALYST_THRESHOLD = 60.0
 
 
 def rank_sectors(
   snapshots: Iterable[SectorSnapshot],
   *,
-  limit: int = 3,
+  limit: int | None = None,
+  config: SectorRuleConfig | None = None,
 ) -> tuple[SectorOutlook, ...]:
   """计算所有板块后按分数降序、代码升序返回指定数量。"""
-  if limit < 0:
+  rules = config or load_default_config().sector
+  result_limit = rules.output_limit if limit is None else limit
+  if result_limit < 0:
     raise ValueError("板块输出数量不能为负数")
 
-  outlooks = tuple(_score_sector(snapshot) for snapshot in snapshots)
+  outlooks = tuple(_score_sector(snapshot, rules) for snapshot in snapshots)
   ordered = sorted(outlooks, key=lambda item: (-item.score, item.sector_code))
-  return tuple(ordered[:limit])
+  return tuple(ordered[:result_limit])
 
 
-def _score_sector(snapshot: SectorSnapshot) -> SectorOutlook:
+def _score_sector(snapshot: SectorSnapshot, config: SectorRuleConfig) -> SectorOutlook:
   """将原始量纲归一化为零至一百分后应用固定权重。"""
   relative_strength = _linear_score(
     snapshot.relative_strength_pct,
-    MIN_RELATIVE_STRENGTH_PCT,
-    MAX_RELATIVE_STRENGTH_PCT,
+    config.relative_strength_min_pct,
+    config.relative_strength_max_pct,
   )
   breadth = _clamp(snapshot.breadth_pct)
-  limit_up = _linear_score(float(snapshot.limit_up_count), 0.0, float(MAX_LIMIT_UP_COUNT))
+  limit_up = _linear_score(float(snapshot.limit_up_count), 0.0, float(config.max_limit_up_count))
   turnover = _linear_score(
     snapshot.turnover_change_pct,
-    MIN_TURNOVER_CHANGE_PCT,
-    MAX_TURNOVER_CHANGE_PCT,
+    config.turnover_change_min_pct,
+    config.turnover_change_max_pct,
   )
-  persistence = _linear_score(float(snapshot.persistence_days), 0.0, float(MAX_PERSISTENCE_DAYS))
+  persistence = _linear_score(float(snapshot.persistence_days), 0.0, float(config.max_persistence_days))
   catalyst = _clamp(snapshot.catalyst_score)
-  healthy_crowding = 100.0 - _clamp(snapshot.crowding_risk_score)
+  crowding_adjustment = config.crowding_max_adjustment * (
+    1.0 - 2.0 * _clamp(snapshot.crowding_risk_score) / 100.0
+  )
 
   score = round(
-    relative_strength * 0.25
-    + breadth * 0.15
-    + limit_up * 0.15
-    + turnover * 0.10
-    + persistence * 0.10
-    + catalyst * 0.15
-    + healthy_crowding * 0.10,
+    _clamp(
+      relative_strength * config.relative_strength_weight
+      + breadth * config.breadth_weight
+      + limit_up * config.limit_up_weight
+      + turnover * config.turnover_weight
+      + persistence * config.persistence_weight
+      + catalyst * config.catalyst_weight
+      + crowding_adjustment,
+    ),
     2,
   )
-  trend, rule_id = _classify_trend(snapshot)
+  trend, rule_id = _classify_trend(snapshot, config)
   evidence = RuleEvidence(
     rule_id=rule_id,
     description="板块强度、广度、成交、持续性、催化和拥挤度加权评分",
@@ -69,9 +66,14 @@ def _score_sector(snapshot: SectorSnapshot) -> SectorOutlook:
       ("turnover", f"{turnover:.2f}"),
       ("persistence", f"{persistence:.2f}"),
       ("catalyst", f"{catalyst:.2f}"),
-      ("healthyCrowding", f"{healthy_crowding:.2f}"),
+      ("crowdingAdjustment", f"{crowding_adjustment:.2f}"),
     ),
     effect=f"板块分数={score:.2f}，趋势={trend.value}",
+    thresholds=(
+      ("crowdedRiskThreshold", f"{config.crowded_risk_threshold:.2f}"),
+      ("healthyBreadthThreshold", f"{config.healthy_breadth_threshold:.2f}"),
+      ("strongCatalystThreshold", f"{config.strong_catalyst_threshold:.2f}"),
+    ),
   )
   return SectorOutlook(
     sector_code=snapshot.sector_code,
@@ -82,22 +84,22 @@ def _score_sector(snapshot: SectorSnapshot) -> SectorOutlook:
   )
 
 
-def _classify_trend(snapshot: SectorSnapshot) -> tuple[SectorTrend, str]:
+def _classify_trend(snapshot: SectorSnapshot, config: SectorRuleConfig) -> tuple[SectorTrend, str]:
   """退潮风险优先，再判断延续、转强和观察。"""
-  if snapshot.crowding_risk_score >= CROWDED_RISK_THRESHOLD or (
-    snapshot.relative_strength_pct < 0 and snapshot.breadth_pct < WEAK_BREADTH_THRESHOLD
+  if snapshot.crowding_risk_score >= config.crowded_risk_threshold or (
+    snapshot.relative_strength_pct < 0 and snapshot.breadth_pct < config.weak_breadth_threshold
   ):
     return SectorTrend.POSSIBLE_EBB_TIDE, "SECTOR-EBB-001"
   if (
     snapshot.relative_strength_pct > 0
-    and snapshot.breadth_pct >= HEALTHY_BREADTH_THRESHOLD
+    and snapshot.breadth_pct >= config.healthy_breadth_threshold
     and snapshot.turnover_change_pct >= 0
-    and snapshot.persistence_days >= 2
+    and snapshot.persistence_days >= config.continuation_persistence_days
   ):
     return SectorTrend.CONTINUATION, "SECTOR-CONTINUATION-001"
   if (
     snapshot.relative_strength_pct > 0
-    and snapshot.catalyst_score >= STRONG_CATALYST_THRESHOLD
+    and snapshot.catalyst_score >= config.strong_catalyst_threshold
   ):
     return SectorTrend.POSSIBLE_STRENGTHENING, "SECTOR-STRENGTHENING-001"
   return SectorTrend.WATCH, "SECTOR-WATCH-001"

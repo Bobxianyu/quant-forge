@@ -62,6 +62,21 @@ def test_nasdaq_drop_at_three_percent_triggers_orange() -> None:
   assert result.level is RiskLevel.ORANGE
 
 
+def test_dow_drop_at_three_percent_triggers_orange() -> None:
+  """道指属于必须监控的美股指数，跌幅达到阈值时触发橙色风险。"""
+  result = assess_risk([make_external("DOW", -3.0)], [])
+
+  assert result.level is RiskLevel.ORANGE
+
+
+def test_empty_external_markets_reports_all_expected_symbols_missing() -> None:
+  """外围行情完全缺失时不得给出满可信度。"""
+  result = assess_risk([], [])
+
+  assert "externalMarkets.DOW" in result.missing_fields
+  assert "externalMarkets.A50" in result.missing_fields
+
+
 def test_partial_session_does_not_trigger_price_risk() -> None:
   """未完成时段的价格波动只能降低可信度，不能触发价格闸门。"""
   result = assess_risk([make_external("NASDAQ", -4.0, SessionStatus.PARTIAL)], [])

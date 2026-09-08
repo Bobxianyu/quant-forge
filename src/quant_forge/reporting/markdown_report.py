@@ -5,7 +5,14 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from quant_forge.domain.models import MarketEnvironment, MarketStyle, PreMarketDecision, RiskLevel, SectorTrend
+from quant_forge.domain.models import (
+  MarketEnvironment,
+  MarketStyle,
+  PreMarketDecision,
+  RiskLevel,
+  RuleEvidence,
+  SectorTrend,
+)
 
 ENVIRONMENT_LABELS = {
   MarketEnvironment.PROFIT_EFFECT: "赚钱效应",
@@ -67,7 +74,7 @@ def render_markdown(decision: PreMarketDecision) -> str:
   ]
   if decision.sector_outlooks:
     lines.extend(
-      f"{index}. {item.sector_name}（{item.score:.2f} 分，{SECTOR_TREND_LABELS[item.trend]}）"
+      f"{index}. {_escape_markdown(item.sector_name)}（{item.score:.2f} 分，{SECTOR_TREND_LABELS[item.trend]}）"
       for index, item in enumerate(decision.sector_outlooks, start=1)
     )
   else:
@@ -87,6 +94,10 @@ def render_markdown(decision: PreMarketDecision) -> str:
       "## 数据缺失或降级项",
       "",
       _format_items(decision.missing_fields),
+      "",
+      "## 规则证据",
+      "",
+      _format_evidence(_all_evidence(decision)),
       "",
       f"规则版本：`{decision.rule_version}`；配置版本：`{decision.config_version}`。",
       "",
@@ -121,4 +132,38 @@ def _format_range(minimum: int, maximum: int) -> str:
 def _format_items(items: tuple[str, ...]) -> str:
   if not items:
     return "无。"
-  return "\n".join(f"- {item}" for item in items)
+  return "\n".join(f"- {_escape_markdown(item)}" for item in items)
+
+
+def _all_evidence(decision: PreMarketDecision) -> tuple[RuleEvidence, ...]:
+  """按环境、风险、仓位和板块顺序收集证据。"""
+  environment_evidence = () if decision.environment is None else decision.environment.evidence
+  sector_evidence = tuple(evidence for sector in decision.sector_outlooks for evidence in sector.evidence)
+  return (*environment_evidence, *decision.risk.evidence, *decision.position.evidence, *sector_evidence)
+
+
+def _format_evidence(items: tuple[RuleEvidence, ...]) -> str:
+  """输出规则编号、实际值、阈值和效果，便于人工复核。"""
+  if not items:
+    return "无。"
+  lines: list[str] = []
+  for item in items:
+    lines.append(f"- `{_escape_markdown(item.rule_id)}`：{_escape_markdown(item.description)}")
+    lines.append(f"  - 实际值：{_format_pairs(item.actual_values)}")
+    lines.append(f"  - 阈值：{_format_pairs(item.thresholds)}")
+    lines.append(f"  - 作用：{_escape_markdown(item.effect)}")
+  return "\n".join(lines)
+
+
+def _format_pairs(items: tuple[tuple[str, str], ...]) -> str:
+  if not items:
+    return "无"
+  return "；".join(f"{_escape_markdown(key)}={_escape_markdown(value)}" for key, value in items)
+
+
+def _escape_markdown(value: str) -> str:
+  """转义来自 CSV 的 Markdown 控制字符，避免报告结构被注入。"""
+  normalized = value.replace("\r", " ").replace("\n", " ")
+  for character in ("\\", "`", "*", "_", "[", "]", "#", "|", "<", ">"):
+    normalized = normalized.replace(character, f"\\{character}")
+  return normalized

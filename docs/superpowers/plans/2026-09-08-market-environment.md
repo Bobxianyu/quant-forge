@@ -417,7 +417,9 @@ Expected: FAIL，错误指向 `main` 不存在。
 
 - [ ] **Step 3: 实现 `run` 命令和中文使用说明**
 
-命令必须接受 `--input-dir`、`--output-dir`、`--report-date` 和 `--cutoff-time`。失败时向标准错误输出中文原因并返回非零状态，不打印堆栈中的敏感路径或令牌。
+命令必须接受 `--input-dir`、`--output-dir`、`--report-date`、`--previous-trade-date`、`--config` 和可选的
+`--publish`。正式截止时间固定从版本化配置读取且只能为北京时间 `08:50`。失败时向标准错误输出中文原因并返回非零状态，
+不打印堆栈中的令牌。
 
 - [ ] **Step 4: 运行端到端测试**
 

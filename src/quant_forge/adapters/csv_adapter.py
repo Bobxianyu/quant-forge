@@ -1,7 +1,8 @@
 """标准 CSV 数据契约读取与中文错误校验。"""
 
 import csv
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
 from typing import TypeVar
@@ -15,6 +16,7 @@ from quant_forge.domain.models import (
 )
 
 T = TypeVar("T")
+MAX_CSV_ROWS = 100_000
 
 
 class DataValidationError(ValueError):
@@ -37,12 +39,16 @@ def load_market_premium(path: Path) -> MarketPremiumSnapshot:
     raise DataValidationError(f"{path}: 核心溢价文件必须且只能包含一条数据，实际为 {len(rows)} 条")
 
   line_number, row = rows[0]
+  first_board = _finite_field(path, line_number, row, "firstBoardPremiumPct")
+  second_board = _finite_field(path, line_number, row, "secondBoardPremiumPct")
+  multi_board = _finite_field(path, line_number, row, "multiBoardPremiumPct")
+  limit_up = _finite_field(path, line_number, row, "limitUpPremiumPct")
   return MarketPremiumSnapshot(
     trade_date=_field(path, line_number, row, "tradeDate", date.fromisoformat),
-    first_board_premium_pct=_field(path, line_number, row, "firstBoardPremiumPct", float),
-    second_board_premium_pct=_field(path, line_number, row, "secondBoardPremiumPct", float),
-    multi_board_premium_pct=_field(path, line_number, row, "multiBoardPremiumPct", float),
-    limit_up_premium_pct=_field(path, line_number, row, "limitUpPremiumPct", float),
+    first_board_premium_pct=first_board,
+    second_board_premium_pct=second_board,
+    multi_board_premium_pct=multi_board,
+    limit_up_premium_pct=limit_up,
     source=_required_text(path, line_number, row, "source"),
     collected_at=_field(path, line_number, row, "collectedAt", _parse_datetime),
   )
@@ -51,7 +57,9 @@ def load_market_premium(path: Path) -> MarketPremiumSnapshot:
 def load_external_markets(path: Path) -> tuple[ExternalMarketSnapshot, ...]:
   """读取零条或多条外围市场快照。"""
   required = ("symbol", "marketDate", "returnPct", "sessionStatus", "source", "collectedAt")
-  return tuple(_external_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  result = tuple(_external_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  _ensure_unique(path, (item.symbol.upper() for item in result), "symbol")
+  return result
 
 
 def load_news_events(path: Path) -> tuple[NewsEvent, ...]:
@@ -68,7 +76,9 @@ def load_news_events(path: Path) -> tuple[NewsEvent, ...]:
     "sourceCount",
     "isMajorRisk",
   )
-  return tuple(_news_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  result = tuple(_news_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  _ensure_unique(path, (item.event_id for item in result), "eventId")
+  return result
 
 
 def load_sectors(path: Path) -> tuple[SectorSnapshot, ...]:
@@ -76,6 +86,8 @@ def load_sectors(path: Path) -> tuple[SectorSnapshot, ...]:
   required = (
     "sectorCode",
     "sectorName",
+    "tradeDate",
+    "collectedAt",
     "returnPct",
     "breadthPct",
     "limitUpCount",
@@ -85,7 +97,9 @@ def load_sectors(path: Path) -> tuple[SectorSnapshot, ...]:
     "catalystScore",
     "crowdingRiskScore",
   )
-  return tuple(_sector_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  result = tuple(_sector_from_row(path, line_number, row) for line_number, row in _read_rows(path, required))
+  _ensure_unique(path, (item.sector_code for item in result), "sectorCode")
+  return result
 
 
 def _read_rows(
@@ -99,11 +113,16 @@ def _read_rows(
     with path.open("r", encoding="utf-8", newline="") as source:
       reader = csv.DictReader(source)
       headers = tuple(reader.fieldnames or ())
+      if len(headers) != len(set(headers)):
+        raise DataValidationError(f"{path}: CSV 表头包含重复字段")
       missing = tuple(field for field in required_fields if field not in headers)
       if missing:
         label = "核心字段" if core_fields else "字段"
         raise DataValidationError(f"{path}: 缺少{label}：{', '.join(missing)}")
-      return tuple((line_number, dict(row)) for line_number, row in enumerate(reader, start=2))
+      rows = tuple((line_number, dict(row)) for line_number, row in enumerate(reader, start=2))
+      if len(rows) > MAX_CSV_ROWS:
+        raise DataValidationError(f"{path}: 数据行数超过上限 {MAX_CSV_ROWS}")
+      return rows
   except OSError as error:
     raise DataValidationError(f"{path}: 无法读取文件：{error}") from error
   except UnicodeError as error:
@@ -118,7 +137,8 @@ def _field(
   converter: Callable[[str], T],
 ) -> T:
   """转换单个字段并补充文件、行号和字段上下文。"""
-  raw_value = row.get(field_name, "").strip()
+  raw = row.get(field_name, "")
+  raw_value = raw.strip() if isinstance(raw, str) else ""
   if not raw_value:
     raise DataValidationError(f"{path}:{line_number}: 字段 {field_name} 不能为空")
   try:
@@ -134,6 +154,14 @@ def _field(
 def _required_text(path: Path, line_number: int, row: dict[str, str], field_name: str) -> str:
   """读取不能为空的文本字段。"""
   return _field(path, line_number, row, field_name, str)
+
+
+def _finite_field(path: Path, line_number: int, row: dict[str, str], field_name: str) -> float:
+  """读取有限浮点数，拒绝 NaN 和正负无穷。"""
+  value = _field(path, line_number, row, field_name, float)
+  if not math.isfinite(value):
+    raise DataValidationError(f"{path}:{line_number}: 字段 {field_name} 必须为有限数值")
+  return value
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -158,7 +186,7 @@ def _external_from_row(path: Path, line_number: int, row: dict[str, str]) -> Ext
   return ExternalMarketSnapshot(
     symbol=_required_text(path, line_number, row, "symbol"),
     market_date=_field(path, line_number, row, "marketDate", date.fromisoformat),
-    return_pct=_field(path, line_number, row, "returnPct", float),
+    return_pct=_finite_field(path, line_number, row, "returnPct"),
     session_status=_field(path, line_number, row, "sessionStatus", SessionStatus),
     source=_required_text(path, line_number, row, "source"),
     collected_at=_field(path, line_number, row, "collectedAt", _parse_datetime),
@@ -166,8 +194,8 @@ def _external_from_row(path: Path, line_number: int, row: dict[str, str]) -> Ext
 
 
 def _news_from_row(path: Path, line_number: int, row: dict[str, str]) -> NewsEvent:
-  sentiment = _field(path, line_number, row, "sentiment", float)
-  confidence = _field(path, line_number, row, "confidence", float)
+  sentiment = _finite_field(path, line_number, row, "sentiment")
+  confidence = _finite_field(path, line_number, row, "confidence")
   impact_level = _field(path, line_number, row, "impactLevel", int)
   source_count = _field(path, line_number, row, "sourceCount", int)
   _validate_range(path, line_number, "sentiment", sentiment, -1, 1)
@@ -190,11 +218,11 @@ def _news_from_row(path: Path, line_number: int, row: dict[str, str]) -> NewsEve
 
 
 def _sector_from_row(path: Path, line_number: int, row: dict[str, str]) -> SectorSnapshot:
-  breadth = _field(path, line_number, row, "breadthPct", float)
+  breadth = _finite_field(path, line_number, row, "breadthPct")
   limit_up_count = _field(path, line_number, row, "limitUpCount", int)
   persistence_days = _field(path, line_number, row, "persistenceDays", int)
-  catalyst = _field(path, line_number, row, "catalystScore", float)
-  crowding = _field(path, line_number, row, "crowdingRiskScore", float)
+  catalyst = _finite_field(path, line_number, row, "catalystScore")
+  crowding = _finite_field(path, line_number, row, "crowdingRiskScore")
   _validate_range(path, line_number, "breadthPct", breadth, 0, 100)
   _validate_range(path, line_number, "limitUpCount", limit_up_count, 0, None)
   _validate_range(path, line_number, "persistenceDays", persistence_days, 0, None)
@@ -203,14 +231,16 @@ def _sector_from_row(path: Path, line_number: int, row: dict[str, str]) -> Secto
   return SectorSnapshot(
     sector_code=_required_text(path, line_number, row, "sectorCode"),
     sector_name=_required_text(path, line_number, row, "sectorName"),
-    return_pct=_field(path, line_number, row, "returnPct", float),
+    return_pct=_finite_field(path, line_number, row, "returnPct"),
     breadth_pct=breadth,
     limit_up_count=limit_up_count,
-    turnover_change_pct=_field(path, line_number, row, "turnoverChangePct", float),
-    relative_strength_pct=_field(path, line_number, row, "relativeStrengthPct", float),
+    turnover_change_pct=_finite_field(path, line_number, row, "turnoverChangePct"),
+    relative_strength_pct=_finite_field(path, line_number, row, "relativeStrengthPct"),
     persistence_days=persistence_days,
     catalyst_score=catalyst,
     crowding_risk_score=crowding,
+    trade_date=_field(path, line_number, row, "tradeDate", date.fromisoformat),
+    collected_at=_field(path, line_number, row, "collectedAt", _parse_datetime),
   )
 
 
@@ -228,3 +258,10 @@ def _validate_range(
     raise DataValidationError(
       f"{path}:{line_number}: 字段 {field_name} 必须位于 {minimum} 至 {upper}，实际为 {value}",
     )
+
+
+def _ensure_unique(path: Path, values: Iterable[str], field_name: str) -> None:
+  """拒绝会导致证据覆盖或排序不稳定的重复标识。"""
+  materialized = tuple(values)
+  if len(materialized) != len(set(materialized)):
+    raise DataValidationError(f"{path}: 字段 {field_name} 包含重复值")

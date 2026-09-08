@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 
+from quant_forge.config import RiskRuleConfig, load_default_config
 from quant_forge.domain.models import (
   ExternalMarketSnapshot,
   NewsEvent,
@@ -11,39 +12,34 @@ from quant_forge.domain.models import (
   SessionStatus,
 )
 
-US_INDEX_SYMBOLS = frozenset({"SP500", "NASDAQ"})
-A50_SYMBOL = "A50"
-RED_NEWS_IMPACT_LEVEL = 5
-RED_NEWS_CONFIDENCE = 0.80
-RED_NEWS_SOURCE_COUNT = 2
-ORANGE_NEWS_IMPACT_LEVEL = 4
-ORANGE_NEWS_CONFIDENCE = 0.70
-ORANGE_NEWS_SOURCE_COUNT = 2
-YELLOW_NEWS_IMPACT_LEVEL = 3
-YELLOW_NEWS_CONFIDENCE = 0.60
-ORANGE_US_INDEX_DROP_PCT = -3.0
-ORANGE_A50_DROP_PCT = -2.5
-YELLOW_US_INDEX_DROP_PCT = -1.5
-YELLOW_A50_DROP_PCT = -1.5
-
 
 def assess_risk(
   external_markets: Iterable[ExternalMarketSnapshot],
   news_events: Iterable[NewsEvent],
+  config: RiskRuleConfig | None = None,
 ) -> RiskAssessment:
   """按红、橙、黄顺序评估风险，并保留正负因素。"""
+  rules = config or load_default_config().risk
   markets = tuple(external_markets)
   news = tuple(news_events)
   usable_markets = tuple(item for item in markets if item.session_status is SessionStatus.CLOSED)
-  missing_fields = tuple(
-    f"{item.symbol}.sessionStatus"
-    for item in markets
-    if item.session_status is not SessionStatus.CLOSED
+  present_symbols = frozenset(item.symbol.upper() for item in markets)
+  missing_fields = (
+    *(f"externalMarkets.{symbol}" for symbol in sorted(rules.expected_symbols - present_symbols)),
+    *(
+      f"{item.symbol}.sessionStatus"
+      for item in markets
+      if item.session_status is not SessionStatus.CLOSED
+    ),
   )
-  positive_factors = tuple(item.title for item in news if item.sentiment > 0 and item.confidence >= 0.60)
-  negative_factors = tuple(item.title for item in news if item.sentiment < 0 and item.confidence >= 0.60)
+  positive_factors = tuple(
+    item.title for item in news if item.sentiment > 0 and item.confidence >= rules.yellow_news_confidence
+  )
+  negative_factors = tuple(
+    item.title for item in news if item.sentiment < 0 and item.confidence >= rules.yellow_news_confidence
+  )
 
-  red_news = next((item for item in news if _is_red_news(item)), None)
+  red_news = next((item for item in news if _is_red_news(item, rules)), None)
   if red_news is not None:
     return _assessment(
       RiskLevel.RED,
@@ -52,9 +48,14 @@ def assess_risk(
       positive_factors,
       negative_factors,
       missing_fields,
+      (
+        ("impactLevel", str(rules.red_news_impact_level)),
+        ("confidence", f"{rules.red_news_confidence:.2f}"),
+        ("sourceCount", str(rules.red_news_source_count)),
+      ),
     )
 
-  orange_news = next((item for item in news if _is_orange_news(item)), None)
+  orange_news = next((item for item in news if _is_orange_news(item, rules)), None)
   if orange_news is not None:
     return _assessment(
       RiskLevel.ORANGE,
@@ -63,9 +64,14 @@ def assess_risk(
       positive_factors,
       negative_factors,
       missing_fields,
+      (
+        ("impactLevel", str(rules.orange_news_impact_level)),
+        ("confidence", f"{rules.orange_news_confidence:.2f}"),
+        ("sourceCount", str(rules.orange_news_source_count)),
+      ),
     )
 
-  orange_market = next((item for item in usable_markets if _is_orange_market(item)), None)
+  orange_market = next((item for item in usable_markets if _is_orange_market(item, rules)), None)
   if orange_market is not None:
     return _market_assessment(
       RiskLevel.ORANGE,
@@ -74,9 +80,10 @@ def assess_risk(
       positive_factors,
       negative_factors,
       missing_fields,
+      rules,
     )
 
-  yellow_news = next((item for item in news if _is_yellow_news(item)), None)
+  yellow_news = next((item for item in news if _is_yellow_news(item, rules)), None)
   if yellow_news is not None:
     return _assessment(
       RiskLevel.YELLOW,
@@ -85,9 +92,13 @@ def assess_risk(
       positive_factors,
       negative_factors,
       missing_fields,
+      (
+        ("impactLevel", str(rules.yellow_news_impact_level)),
+        ("confidence", f"{rules.yellow_news_confidence:.2f}"),
+      ),
     )
 
-  yellow_market = next((item for item in usable_markets if _is_yellow_market(item)), None)
+  yellow_market = next((item for item in usable_markets if _is_yellow_market(item, rules)), None)
   if yellow_market is not None:
     return _market_assessment(
       RiskLevel.YELLOW,
@@ -96,6 +107,7 @@ def assess_risk(
       positive_factors,
       negative_factors,
       missing_fields,
+      rules,
     )
 
   return RiskAssessment(
@@ -106,45 +118,45 @@ def assess_risk(
   )
 
 
-def _is_red_news(event: NewsEvent) -> bool:
+def _is_red_news(event: NewsEvent, config: RiskRuleConfig) -> bool:
   return (
     event.sentiment < 0
     and event.is_major_risk
-    and event.impact_level >= RED_NEWS_IMPACT_LEVEL
-    and event.confidence >= RED_NEWS_CONFIDENCE
-    and event.source_count >= RED_NEWS_SOURCE_COUNT
+    and event.impact_level >= config.red_news_impact_level
+    and event.confidence >= config.red_news_confidence
+    and event.source_count >= config.red_news_source_count
   )
 
 
-def _is_orange_news(event: NewsEvent) -> bool:
+def _is_orange_news(event: NewsEvent, config: RiskRuleConfig) -> bool:
   return (
     event.sentiment < 0
-    and event.impact_level >= ORANGE_NEWS_IMPACT_LEVEL
-    and event.confidence >= ORANGE_NEWS_CONFIDENCE
-    and event.source_count >= ORANGE_NEWS_SOURCE_COUNT
+    and event.impact_level >= config.orange_news_impact_level
+    and event.confidence >= config.orange_news_confidence
+    and event.source_count >= config.orange_news_source_count
   )
 
 
-def _is_yellow_news(event: NewsEvent) -> bool:
+def _is_yellow_news(event: NewsEvent, config: RiskRuleConfig) -> bool:
   return (
     event.sentiment < 0
-    and event.impact_level >= YELLOW_NEWS_IMPACT_LEVEL
-    and event.confidence >= YELLOW_NEWS_CONFIDENCE
+    and event.impact_level >= config.yellow_news_impact_level
+    and event.confidence >= config.yellow_news_confidence
   )
 
 
-def _is_orange_market(market: ExternalMarketSnapshot) -> bool:
+def _is_orange_market(market: ExternalMarketSnapshot, config: RiskRuleConfig) -> bool:
   symbol = market.symbol.upper()
   return (
-    symbol in US_INDEX_SYMBOLS and market.return_pct <= ORANGE_US_INDEX_DROP_PCT
-  ) or (symbol == A50_SYMBOL and market.return_pct <= ORANGE_A50_DROP_PCT)
+    symbol in config.us_index_symbols and market.return_pct <= config.orange_us_index_drop_pct
+  ) or (symbol in config.a50_symbols and market.return_pct <= config.orange_a50_drop_pct)
 
 
-def _is_yellow_market(market: ExternalMarketSnapshot) -> bool:
+def _is_yellow_market(market: ExternalMarketSnapshot, config: RiskRuleConfig) -> bool:
   symbol = market.symbol.upper()
   return (
-    symbol in US_INDEX_SYMBOLS and market.return_pct <= YELLOW_US_INDEX_DROP_PCT
-  ) or (symbol == A50_SYMBOL and market.return_pct <= YELLOW_A50_DROP_PCT)
+    symbol in config.us_index_symbols and market.return_pct <= config.yellow_us_index_drop_pct
+  ) or (symbol in config.a50_symbols and market.return_pct <= config.yellow_a50_drop_pct)
 
 
 def _assessment(
@@ -154,12 +166,14 @@ def _assessment(
   positive_factors: tuple[str, ...],
   negative_factors: tuple[str, ...],
   missing_fields: tuple[str, ...],
+  thresholds: tuple[tuple[str, str], ...],
 ) -> RiskAssessment:
   evidence = RuleEvidence(
     rule_id=rule_id,
     description="结构化新闻触发盘前风险闸门",
     actual_values=(("title", title),),
     effect=f"风险等级={level.value}",
+    thresholds=thresholds,
   )
   return RiskAssessment(level, (evidence,), positive_factors, negative_factors, missing_fields)
 
@@ -171,11 +185,25 @@ def _market_assessment(
   positive_factors: tuple[str, ...],
   negative_factors: tuple[str, ...],
   missing_fields: tuple[str, ...],
+  config: RiskRuleConfig,
 ) -> RiskAssessment:
   evidence = RuleEvidence(
     rule_id=rule_id,
     description="已完成外围行情触发盘前风险闸门",
     actual_values=((market.symbol, f"{market.return_pct:.2f}%"),),
     effect=f"风险等级={level.value}",
+    thresholds=(("triggerReturnPct", f"{_market_threshold(level, market, config):.2f}%"),),
   )
   return RiskAssessment(level, (evidence,), positive_factors, negative_factors, missing_fields)
+
+
+def _market_threshold(
+  level: RiskLevel,
+  market: ExternalMarketSnapshot,
+  config: RiskRuleConfig,
+) -> float:
+  """返回当前标的和风险级别对应的跌幅阈值。"""
+  is_us_index = market.symbol.upper() in config.us_index_symbols
+  if level is RiskLevel.ORANGE:
+    return config.orange_us_index_drop_pct if is_us_index else config.orange_a50_drop_pct
+  return config.yellow_us_index_drop_pct if is_us_index else config.yellow_a50_drop_pct

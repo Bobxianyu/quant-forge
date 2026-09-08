@@ -194,6 +194,8 @@
 | --- | --- | --- |
 | `sectorCode` | 字符串 | 稳定板块代码 |
 | `sectorName` | 字符串 | 中文展示名称 |
+| `tradeDate` | 日期 | 必须等于显式传入的上一 A 股交易日 |
+| `collectedAt` | 时间戳 | 不得晚于实际生成时间，且必须早于正式截止时间 |
 | `returnPct` | 小数 | 板块涨跌幅 |
 | `breadthPct` | 小数 | 板块内上涨家数占比 |
 | `limitUpCount` | 整数 | 非负 |

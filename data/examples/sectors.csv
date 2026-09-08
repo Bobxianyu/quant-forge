@@ -1,5 +1,5 @@
-sectorCode,sectorName,returnPct,breadthPct,limitUpCount,turnoverChangePct,relativeStrengthPct,persistenceDays,catalystScore,crowdingRiskScore
-AI,人工智能,2.10,70,5,20,1.50,3,80,35
-CHIP,半导体,1.60,64,4,12,1.00,2,75,30
-FIN,金融,0.30,52,1,-5,0.10,1,30,20
-OLD,高位旧题材,-1.20,28,1,-25,-1.80,5,10,90
+sectorCode,sectorName,tradeDate,collectedAt,returnPct,breadthPct,limitUpCount,turnoverChangePct,relativeStrengthPct,persistenceDays,catalystScore,crowdingRiskScore
+AI,人工智能,2026-09-07,2026-09-08T08:30:00+08:00,2.10,70,5,20,1.50,3,80,35
+CHIP,半导体,2026-09-07,2026-09-08T08:30:00+08:00,1.60,64,4,12,1.00,2,75,30
+FIN,金融,2026-09-07,2026-09-08T08:30:00+08:00,0.30,52,1,-5,0.10,1,30,20
+OLD,高位旧题材,2026-09-07,2026-09-08T08:30:00+08:00,-1.20,28,1,-25,-1.80,5,10,90

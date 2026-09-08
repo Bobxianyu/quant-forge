@@ -1,5 +1,6 @@
 """结构化和中文 Markdown 报告测试。"""
 
+from dataclasses import replace
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -15,6 +16,7 @@ def make_decision():
   report_date = date(2026, 9, 8)
   return build_pre_market_decision(
     report_date=report_date,
+    expected_market_date=date(2026, 9, 7),
     generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
     cutoff_at=datetime(2026, 9, 8, 8, 50, tzinfo=CHINA_TIMEZONE),
     market_premium=MarketPremiumSnapshot(
@@ -50,3 +52,14 @@ def test_decision_to_dict_serializes_dates_and_enums() -> None:
   assert result["report_date"] == "2026-09-08"
   assert result["environment"]["environment"] == "PROFIT_EFFECT"
   assert result["position"]["final_grade"] == "A"
+
+
+def test_markdown_contains_threshold_evidence_and_escapes_input() -> None:
+  """报告应展示规则阈值，并转义外部文本中的 Markdown 控制符。"""
+  decision = replace(make_decision(), positive_factors=("# 伪标题 [链接](危险)",))
+
+  content = render_markdown(decision)
+
+  assert "## 规则证据" in content
+  assert "strongPremiumThresholdPct" in content
+  assert "\\# 伪标题 \\[链接\\](危险)" in content

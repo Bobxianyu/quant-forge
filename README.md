@@ -32,13 +32,16 @@ python -m pip install -e ".[dev]"
 python -m quant_forge.cli run `
   --input-dir data/examples `
   --output-dir outputs/example `
-  --report-date 2026-09-08
+  --report-date 2026-09-08 `
+  --previous-trade-date 2026-09-07 `
+  --publish
 ```
 
 成功后生成：
 
-- `outputs/example/pre-market-decision.json`：供程序继续处理的结构化结论；
-- `outputs/example/pre-market-decision.md`：供交易者盘前复核的中文报告。
+- `outputs/example/pre-market-decision.json`：使用 `--publish` 发布的唯一正式结构化结论；
+- `outputs/example/pre-market-decision.md`：使用 `--publish` 发布的唯一正式中文报告；
+- `outputs/example/history/<报告日>/<运行摘要>/`：不可覆盖的历史运行副本。
 
 ## 输入文件
 

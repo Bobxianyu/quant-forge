@@ -129,6 +129,8 @@ class SectorSnapshot:
   persistence_days: int
   catalyst_score: float
   crowding_risk_score: float
+  trade_date: date | None = None
+  collected_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +141,7 @@ class RuleEvidence:
   description: str
   actual_values: tuple[tuple[str, str], ...]
   effect: str
+  thresholds: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,8 +1,12 @@
 {
   "version": "1.0.0",
   "reportCutoffTime": "08:50:00",
-  "strongPremiumThresholdPct": 2.0,
+  "environment": {
+    "strongPremiumThresholdPct": 2.0
+  },
   "risk": {
+    "usIndexSymbols": ["SP500", "NASDAQ", "DOW"],
+    "a50Symbols": ["A50"],
     "redNewsImpactLevel": 5,
     "redNewsConfidence": 0.8,
     "redNewsSourceCount": 2,
@@ -21,6 +25,26 @@
     "B": {"total": [20, 50], "single": [10, 20]},
     "C": {"total": [0, 20], "single": [0, 10]},
     "D": {"total": [0, 0], "single": [0, 0]}
+  },
+  "sector": {
+    "outputLimit": 3,
+    "relativeStrengthMinPct": -5.0,
+    "relativeStrengthMaxPct": 5.0,
+    "maxLimitUpCount": 10,
+    "turnoverChangeMinPct": -50.0,
+    "turnoverChangeMaxPct": 50.0,
+    "maxPersistenceDays": 5,
+    "continuationPersistenceDays": 2,
+    "crowdedRiskThreshold": 80.0,
+    "weakBreadthThreshold": 40.0,
+    "healthyBreadthThreshold": 50.0,
+    "strongCatalystThreshold": 60.0,
+    "relativeStrengthWeight": 0.25,
+    "breadthWeight": 0.15,
+    "limitUpWeight": 0.15,
+    "turnoverWeight": 0.10,
+    "persistenceWeight": 0.10,
+    "catalystWeight": 0.15,
+    "crowdingMaxAdjustment": 10.0
   }
 }
-

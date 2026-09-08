@@ -57,6 +57,20 @@ def test_timestamp_without_timezone_is_rejected(tmp_path: Path) -> None:
     load_market_premium(path)
 
 
+@pytest.mark.parametrize("invalid_value", ["nan", "inf", "-inf"])
+def test_non_finite_core_metric_is_rejected(tmp_path: Path, invalid_value: str) -> None:
+  """CSV 中的非有限数不得绕过核心字段校验。"""
+  path = write_csv(
+    tmp_path / "market.csv",
+    "tradeDate,firstBoardPremiumPct,secondBoardPremiumPct,multiBoardPremiumPct,"
+    "limitUpPremiumPct,source,collectedAt\n"
+    f"2026-09-07,{invalid_value},1.0,0.5,2.2,example,2026-09-08T08:30:00+08:00\n",
+  )
+
+  with pytest.raises(DataValidationError, match="firstBoardPremiumPct.*有限数值"):
+    load_market_premium(path)
+
+
 def test_loads_external_markets(tmp_path: Path) -> None:
   """外围市场 CSV 支持多行并解析交易时段状态。"""
   path = write_csv(
@@ -91,9 +105,9 @@ def test_loads_sector_snapshot(tmp_path: Path) -> None:
   """板块 CSV 应保留评分所需全部原始字段。"""
   path = write_csv(
     tmp_path / "sectors.csv",
-    "sectorCode,sectorName,returnPct,breadthPct,limitUpCount,turnoverChangePct,"
+    "sectorCode,sectorName,tradeDate,collectedAt,returnPct,breadthPct,limitUpCount,turnoverChangePct,"
     "relativeStrengthPct,persistenceDays,catalystScore,crowdingRiskScore\n"
-    "AI,人工智能,2.1,70,5,20,1.5,3,80,35\n",
+    "AI,人工智能,2026-09-07,2026-09-08T08:30:00+08:00,2.1,70,5,20,1.5,3,80,35\n",
   )
 
   result = load_sectors(path)

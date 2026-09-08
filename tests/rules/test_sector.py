@@ -78,6 +78,34 @@ def test_crowded_sector_with_weak_breadth_is_possible_ebb_tide() -> None:
   assert result[0].trend is SectorTrend.POSSIBLE_EBB_TIDE
 
 
+def test_crowding_adjustment_penalizes_high_crowding() -> None:
+  """其他字段相同时，高拥挤板块应比低拥挤板块少二十分。"""
+  low = make_sector(
+    "LOW",
+    relative_strength=1,
+    breadth=60,
+    limit_up_count=3,
+    turnover_change=10,
+    persistence_days=2,
+    catalyst_score=60,
+    crowding_score=0,
+  )
+  high = make_sector(
+    "HIGH",
+    relative_strength=1,
+    breadth=60,
+    limit_up_count=3,
+    turnover_change=10,
+    persistence_days=2,
+    catalyst_score=60,
+    crowding_score=100,
+  )
+
+  result = rank_sectors([low, high], limit=2)
+
+  assert result[0].score - result[1].score == 20
+
+
 def test_new_catalyst_with_positive_strength_is_possible_strengthening() -> None:
   """新增催化和相对强度改善可判为可能转强。"""
   sector = make_sector(

@@ -44,6 +44,8 @@ def make_sector(code: str, score_offset: float) -> SectorSnapshot:
     persistence_days=2,
     catalyst_score=60,
     crowding_risk_score=30,
+    trade_date=date(2026, 9, 7),
+    collected_at=datetime(2026, 9, 8, 8, 30, tzinfo=CHINA_TIMEZONE),
   )
 
 
@@ -67,6 +69,7 @@ def test_pipeline_outputs_environment_position_risk_and_sectors() -> None:
   """有效输入必须产生完整、可执行的盘前结论。"""
   decision = build_pre_market_decision(
     report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
     generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
     cutoff_at=CUTOFF_AT,
     market_premium=make_market(),
@@ -87,6 +90,7 @@ def test_pipeline_degrades_safely_for_core_data_after_cutoff() -> None:
   """截止时间后采集的核心数据不能产生交易许可。"""
   decision = build_pre_market_decision(
     report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
     generated_at=datetime(2026, 9, 8, 9, 0, tzinfo=CHINA_TIMEZONE),
     cutoff_at=CUTOFF_AT,
     market_premium=make_market(
@@ -108,6 +112,7 @@ def test_news_after_cutoff_does_not_change_formal_decision() -> None:
   """截止时间后的重大利空不得反向改写正式报告。"""
   decision = build_pre_market_decision(
     report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
     generated_at=datetime(2026, 9, 8, 9, 0, tzinfo=CHINA_TIMEZONE),
     cutoff_at=CUTOFF_AT,
     market_premium=make_market(),
@@ -120,5 +125,129 @@ def test_news_after_cutoff_does_not_change_formal_decision() -> None:
 
   assert decision.risk.level is RiskLevel.NONE
   assert decision.position.final_grade is PermissionGrade.A
-  assert "newsEvents.afterCutoff" in decision.missing_fields
+  assert "newsEvents.afterAsOf" in decision.missing_fields
 
+
+def test_non_finite_core_metric_forces_zero_position() -> None:
+  """NaN 等非有限核心值不得进入任何交易许可判断。"""
+  invalid_market = MarketPremiumSnapshot(
+    trade_date=date(2026, 9, 7),
+    first_board_premium_pct=float("nan"),
+    second_board_premium_pct=1.0,
+    multi_board_premium_pct=0.5,
+    limit_up_premium_pct=2.2,
+    source="test",
+    collected_at=datetime(2026, 9, 8, 8, 30, tzinfo=CHINA_TIMEZONE),
+  )
+
+  decision = build_pre_market_decision(
+    report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
+    generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
+    cutoff_at=CUTOFF_AT,
+    market_premium=invalid_market,
+    external_markets=(),
+    news_events=(),
+    sectors=(),
+  )
+
+  assert decision.status == "INSUFFICIENT_DATA"
+  assert decision.position.final_grade is PermissionGrade.D
+  assert decision.position.total.maximum == 0
+  assert "marketPremium.firstBoardPremiumPct" in decision.missing_fields
+
+
+def test_snapshot_must_match_explicit_previous_trade_date() -> None:
+  """显式上一交易日可正确覆盖周末和中国节假日。"""
+  old_market = MarketPremiumSnapshot(
+    trade_date=date(2026, 8, 1),
+    first_board_premium_pct=2.5,
+    second_board_premium_pct=1.0,
+    multi_board_premium_pct=0.5,
+    limit_up_premium_pct=2.2,
+    source="test",
+    collected_at=datetime(2026, 9, 8, 8, 30, tzinfo=CHINA_TIMEZONE),
+  )
+
+  decision = build_pre_market_decision(
+    report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
+    generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
+    cutoff_at=CUTOFF_AT,
+    market_premium=old_market,
+    external_markets=(),
+    news_events=(),
+    sectors=(),
+  )
+
+  assert decision.status == "INSUFFICIENT_DATA"
+  assert "marketPremium.tradeDate" in decision.missing_fields
+
+
+def test_data_after_generation_time_is_excluded() -> None:
+  """即使数据早于 08:50，也不能使用晚于本次实际生成时间的数据。"""
+  decision = build_pre_market_decision(
+    report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
+    generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
+    cutoff_at=CUTOFF_AT,
+    market_premium=make_market(
+      collected_at=datetime(2026, 9, 8, 8, 45, tzinfo=CHINA_TIMEZONE),
+    ),
+    external_markets=(),
+    news_events=(),
+    sectors=(),
+  )
+
+  assert decision.status == "INSUFFICIENT_DATA"
+  assert decision.position.total.maximum == 0
+
+
+def test_non_formal_cutoff_time_forces_zero_position() -> None:
+  """调用方不能把正式报告截止时间改到盘后。"""
+  decision = build_pre_market_decision(
+    report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
+    generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
+    cutoff_at=datetime(2026, 9, 8, 15, 0, tzinfo=CHINA_TIMEZONE),
+    market_premium=make_market(),
+    external_markets=(),
+    news_events=(),
+    sectors=(),
+  )
+
+  assert decision.status == "INSUFFICIENT_DATA"
+  assert decision.position.total.maximum == 0
+  assert "cutoffAt" in decision.missing_fields
+
+
+def test_future_sector_snapshot_is_excluded() -> None:
+  """板块数据晚于实际生成时刻时不得进入排名。"""
+  future = make_sector("FUTURE", 2)
+  future = SectorSnapshot(
+    sector_code=future.sector_code,
+    sector_name=future.sector_name,
+    return_pct=future.return_pct,
+    breadth_pct=future.breadth_pct,
+    limit_up_count=future.limit_up_count,
+    turnover_change_pct=future.turnover_change_pct,
+    relative_strength_pct=future.relative_strength_pct,
+    persistence_days=future.persistence_days,
+    catalyst_score=future.catalyst_score,
+    crowding_risk_score=future.crowding_risk_score,
+    trade_date=future.trade_date,
+    collected_at=datetime(2026, 9, 8, 8, 45, tzinfo=CHINA_TIMEZONE),
+  )
+  decision = build_pre_market_decision(
+    report_date=REPORT_DATE,
+    expected_market_date=date(2026, 9, 7),
+    generated_at=datetime(2026, 9, 8, 8, 40, tzinfo=CHINA_TIMEZONE),
+    cutoff_at=CUTOFF_AT,
+    market_premium=make_market(),
+    external_markets=(),
+    news_events=(),
+    sectors=(future,),
+  )
+
+  assert decision.sector_outlooks == ()
+  assert "sectors.afterAsOf" in decision.missing_fields
