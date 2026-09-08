@@ -1,0 +1,4 @@
+eventId,publishedAt,title,eventType,sentiment,impactLevel,confidence,affectedSectors,sourceCount,isMajorRisk
+news-001,2026-09-08T07:10:00+08:00,产业政策释放积极信号,行业,0.70,3,0.80,AI|CHIP,2,false
+news-002,2026-09-08T07:30:00+08:00,外围风险保持稳定,宏观,0.10,2,0.70,,2,false
+

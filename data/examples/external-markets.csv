@@ -1,0 +1,5 @@
+symbol,marketDate,returnPct,sessionStatus,source,collectedAt
+SP500,2026-09-07,0.40,CLOSED,example,2026-09-08T08:30:00+08:00
+NASDAQ,2026-09-07,0.70,CLOSED,example,2026-09-08T08:30:00+08:00
+A50,2026-09-08,0.20,PARTIAL,example,2026-09-08T08:30:00+08:00
+
