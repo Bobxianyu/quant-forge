@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 
-from quant_forge.config import SectorRuleConfig, load_default_config
+from quant_forge.config import SectorRuleConfig, load_default_config, validateSectorWeights
 from quant_forge.domain.models import RuleEvidence, SectorOutlook, SectorSnapshot, SectorTrend
 
 
@@ -12,8 +12,10 @@ def rank_sectors(
   limit: int | None = None,
   config: SectorRuleConfig | None = None,
 ) -> tuple[SectorOutlook, ...]:
-  """计算所有板块后按分数降序、代码升序返回指定数量。"""
+  """计算板块后按分数降序、代码升序返回指定数量；权重或数量非法时抛出 ValueError。"""
   rules = config or load_default_config().sector
+  # 直接注入板块配置时也校验权重，空数据不能绕过入口约束。
+  validateSectorWeights(rules)
   result_limit = rules.output_limit if limit is None else limit
   if result_limit < 0:
     raise ValueError("板块输出数量不能为负数")

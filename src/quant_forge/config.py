@@ -8,6 +8,17 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+SECTOR_BASE_WEIGHT_TOTAL = 0.90
+SECTOR_WEIGHT_SUM_TOLERANCE = 1e-9
+SECTOR_WEIGHT_FIELDS = (
+  ("relative_strength_weight", "relativeStrengthWeight"),
+  ("breadth_weight", "breadthWeight"),
+  ("limit_up_weight", "limitUpWeight"),
+  ("turnover_weight", "turnoverWeight"),
+  ("persistence_weight", "persistenceWeight"),
+  ("catalyst_weight", "catalystWeight"),
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EnvironmentRuleConfig:
@@ -218,12 +229,12 @@ def _sector_config(raw: dict[str, Any]) -> SectorRuleConfig:
     weak_breadth_threshold=float(raw["weakBreadthThreshold"]),
     healthy_breadth_threshold=float(raw["healthyBreadthThreshold"]),
     strong_catalyst_threshold=float(raw["strongCatalystThreshold"]),
-    relative_strength_weight=float(raw["relativeStrengthWeight"]),
-    breadth_weight=float(raw["breadthWeight"]),
-    limit_up_weight=float(raw["limitUpWeight"]),
-    turnover_weight=float(raw["turnoverWeight"]),
-    persistence_weight=float(raw["persistenceWeight"]),
-    catalyst_weight=float(raw["catalystWeight"]),
+    relative_strength_weight=_weightNumber(raw["relativeStrengthWeight"], "relativeStrengthWeight"),
+    breadth_weight=_weightNumber(raw["breadthWeight"], "breadthWeight"),
+    limit_up_weight=_weightNumber(raw["limitUpWeight"], "limitUpWeight"),
+    turnover_weight=_weightNumber(raw["turnoverWeight"], "turnoverWeight"),
+    persistence_weight=_weightNumber(raw["persistenceWeight"], "persistenceWeight"),
+    catalyst_weight=_weightNumber(raw["catalystWeight"], "catalystWeight"),
     crowding_max_adjustment=float(raw["crowdingMaxAdjustment"]),
   )
 
@@ -252,6 +263,7 @@ def validate_decision_config(config: DecisionConfig) -> None:
   for name, value in integer_fields:
     if type(value) is not int:
       raise ValueError(f"配置字段 {name} 必须为整数")
+  validateSectorWeights(config.sector)
   numeric_values = _numeric_config_values(config)
   if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in numeric_values):
     raise ValueError("规则配置中的数值必须为数字")
@@ -351,16 +363,35 @@ def _validate_risk_and_sector_config(config: DecisionConfig) -> None:
     raise ValueError("最大持续天数必须大于零")
   if not 0 <= config.sector.continuation_persistence_days <= config.sector.max_persistence_days:
     raise ValueError("延续判定天数必须位于零至最大持续天数之间")
-  weight_total = (
-    config.sector.relative_strength_weight
-    + config.sector.breadth_weight
-    + config.sector.limit_up_weight
-    + config.sector.turnover_weight
-    + config.sector.persistence_weight
-    + config.sector.catalyst_weight
-  )
-  if abs(weight_total - 0.90) > 1e-9:
-    raise ValueError("板块基础权重之和必须为 0.90")
+
+
+def validateSectorWeights(config: SectorRuleConfig) -> None:
+  """校验六项基础权重，供配置加载和直接评分入口共用。
+
+  参数：config 为板块配置，六权重须为非负有限数字，总和为 0.90。
+  返回：校验通过时返回 None，不修改配置或调整权重。
+  异常：类型、取值或合计不合要求时抛出包含字段信息的中文 ValueError。
+  """
+  weights = [_weightNumber(getattr(config, attribute), fieldName) for attribute, fieldName in SECTOR_WEIGHT_FIELDS]
+  # 只对总和保留浮点容差；逐项负数不能借助容差进入评分。
+  if abs(sum(weights) - SECTOR_BASE_WEIGHT_TOTAL) > SECTOR_WEIGHT_SUM_TOLERANCE:
+    raise ValueError(f"板块基础权重之和必须为 {SECTOR_BASE_WEIGHT_TOTAL:.2f}")
+
+
+def _weightNumber(value: object, fieldName: str) -> float:
+  """在转换前拒绝布尔与文本，统一处理溢出、非有限值及负权重。"""
+  if isinstance(value, bool) or not isinstance(value, (int, float)):
+    # 配置和评分入口统一以 ValueError 报告非法参数。
+    raise ValueError(f"板块权重 {fieldName} 必须为数字，不能使用布尔值或文本")  # noqa: TRY004
+  try:
+    number = float(value)
+  except OverflowError as error:
+    raise ValueError(f"板块权重 {fieldName} 必须为有限数") from error
+  if not math.isfinite(number):
+    raise ValueError(f"板块权重 {fieldName} 必须为有限数")
+  if number < 0:
+    raise ValueError(f"板块权重 {fieldName} 不能为负数")
+  return number
 
 
 def _validate_symbol_set(value: object, field_name: str) -> None:
