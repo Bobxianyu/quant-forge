@@ -1,0 +1,108 @@
+/* 正式行情工作台沿用设计稿的深色面板与冷蓝强调色。 */
+:root {
+  color-scheme: dark;
+  --bg: #101820;
+  --panel: #18242f;
+  --line: #2b3945;
+  --text: #e7edf3;
+  --muted: #a0aebb;
+  --blue: #8ccaff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.65 "Microsoft YaHei", sans-serif; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 29px; font-weight: 600; letter-spacing: 1px; }
+h2 { font-size: 18px; font-weight: 600; }
+h3 { font-size: 14px; font-weight: 500; }
+a { color: inherit; text-decoration: none; }
+button, input, select { font: inherit; border: 1px solid #3a4c5b; border-radius: 6px; color: var(--text); }
+button { background: #202f3b; padding: 8px 15px; cursor: pointer; }
+button:hover:not(:disabled), a:hover { color: var(--blue); border-color: var(--blue); }
+button:disabled { opacity: .45; cursor: default; }
+input, select { background: #121e28; padding: 9px 10px; width: 100%; min-width: 0; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.sidebar { position: fixed; inset: 0 auto 0 0; width: 208px; padding: 28px 18px; background: #111c25; }
+.sidebar { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.brand { display: flex; align-items: center; gap: 12px; font: 600 12px/1.7 Georgia, serif; letter-spacing: 1px; }
+.brand-mark { color: var(--blue); font: 29px Georgia, serif; }
+.brand small { display: block; font: 11px/2 "Microsoft YaHei", sans-serif; color: var(--muted); }
+.nav-label { margin: 46px 12px 12px; color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+nav { display: grid; gap: 8px; }
+nav a { padding: 11px 14px; background: #192b39; border-radius: 6px; color: #b6d4eb; }
+.sidebar-note { margin-top: auto; color: var(--muted); font-size: 12px; }
+.sidebar-note small { display: block; }
+.workspace { margin-left: 208px; }
+.topbar { padding: 20px 34px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+.topbar { color: var(--muted); font-size: 12px; }
+main { max-width: 1560px; margin: auto; padding: 24px 34px; }
+section { scroll-margin-top: 20px; }
+.page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.page-heading { margin: 12px 0 22px; }
+.page-heading .muted { margin-top: 8px; }
+.eyebrow { color: var(--muted); font-size: 10px; letter-spacing: 2px; margin-bottom: 6px; }
+.muted { color: var(--muted); font-size: 12px; }
+.primary { color: #0b2539; background: var(--blue); border-color: var(--blue); font-weight: 600; white-space: nowrap; }
+.primary:hover:not(:disabled) { background: #abd9ff; color: #0b2539; }
+.notice { padding: 12px 16px; border: 1px solid #365267; background: #1b3040; border-radius: 6px; color: #c1d9ec; }
+.section-heading { margin: 24px 0 14px; }
+.indices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.index-card, .module-card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.index-card { padding: 20px; }
+.index-card strong { display: block; font: 30px/1.9 Consolas, monospace; }
+.index-card p { font-size: 10px; }
+.up { color: #ff9098; }
+.down { color: #74d5b0; }
+.panel { margin-top: 26px; overflow: hidden; }
+.panel > .section-heading { margin: 22px 22px 8px; }
+#stock-dates { margin: 0 22px; }
+.filters { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr .8fr .7fr auto; gap: 12px; padding: 20px 22px; }
+.filters { align-items: end; }
+.filters label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; min-width: 0; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; white-space: nowrap; }
+th { background: #14212c; color: var(--muted); font-weight: 400; }
+th, td { padding: 13px 16px; border-top: 1px solid var(--line); }
+td small { display: block; color: var(--muted); font: 11px/1.6 Consolas, monospace; }
+td:nth-child(6) { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+tbody tr:hover { background: #1e303e; }
+.text-button { padding: 3px 7px; color: var(--blue); background: transparent; }
+.pagination { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; gap: 12px; }
+.pagination { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.pagination button + button { margin-left: 8px; }
+.module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.module-card { padding: 20px; overflow-wrap: anywhere; font-size: 12px; color: #bacbd8; }
+.module-card h3 { color: var(--text); margin-bottom: 8px; }
+.module-card p { margin-top: 8px; }
+.error { color: #ffbc66; }
+footer { margin: 26px 0 10px; color: var(--muted); font-size: 11px; }
+dialog { width: min(620px, calc(100% - 32px)); max-height: 85vh; background: var(--panel); color: var(--text); }
+dialog { border: 1px solid #456077; border-radius: 10px; padding: 24px; overflow-wrap: anywhere; }
+dialog::backdrop { background: #050b12c9; }
+dialog .section-heading { margin: 0 0 18px; }
+dialog p { margin: 8px 0; }
+dialog h3 { color: var(--blue); margin-top: 22px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 1200px) {
+  .sidebar { width: 175px; padding: 26px 14px; }
+  .workspace { margin-left: 175px; }
+  main { padding: 22px; }
+  .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .indices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .sidebar { position: static; width: auto; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .nav-label, .sidebar-note { display: none; }
+  nav { grid-template-columns: repeat(3, 1fr); margin-top: 16px; font-size: 12px; }
+  nav a { padding: 8px; text-align: center; }
+  .workspace { margin: 0; }
+  .topbar { padding: 14px 20px; font-size: 10px; }
+  main { padding: 16px; }
+  .page-heading { flex-wrap: wrap; gap: 14px; }
+  h1 { font-size: 25px; }
+  .index-card { padding: 14px; }
+  .index-card h3 { font-size: 12px; }
+  .index-card strong { font-size: 25px; }
+  .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .module-grid { grid-template-columns: 1fr; }
+  .pagination { flex-wrap: wrap; padding: 14px 16px; }
+}

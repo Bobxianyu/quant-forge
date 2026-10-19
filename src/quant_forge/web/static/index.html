@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quant Forge · 行情工作台</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/marketView.js"></script>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark">QF</span>
+      <span>QUANT FORGE<small>行情工作台</small></span></a>
+    <p class="nav-label">工作空间</p>
+    <nav aria-label="主导航">
+      <a href="#overview">市场概览</a><a href="#stocks">选股工作台</a><a href="#data">数据状态</a>
+    </nav>
+    <p class="sidebar-note">本地工作空间<small>真实行情 · 手动采集</small></p>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span>工作空间 / 行情工作台</span><span>北京时间 UTC+8</span></header>
+    <main>
+      <section id="overview" aria-labelledby="page-title">
+        <div class="page-heading"><div><p class="eyebrow">市场观察 / 01</p><h1 id="page-title">行情工作台</h1>
+          <p class="muted">打开页面读取已保存行情；点击刷新后采集最新数据。</p></div>
+          <button id="refresh" class="primary" type="button">刷新行情 ↗</button></div>
+        <p id="connection" class="notice" role="status">正在读取本地行情…</p>
+        <div class="section-heading"><h2>市场环境</h2><span class="muted">四项真实指数表现</span></div>
+        <div id="indices" class="indices"></div>
+      </section>
+      <section id="stocks" class="panel" aria-labelledby="stocks-title">
+        <div class="section-heading"><div><p class="eyebrow">全市场 / 02</p><h2 id="stocks-title">选股工作台</h2></div>
+          <span id="stock-count" class="muted">沪深 A 股</span></div>
+        <p id="stock-dates" class="muted"></p>
+        <form id="filters" class="filters">
+          <label>股票代码 / 名称<input id="query" type="search" placeholder="搜索全部股票" autocomplete="off"></label>
+          <label>行业 / 概念<select id="sector"><option value="">全部板块</option></select></label>
+          <label>昨日成交额 ≥（亿元）<input id="minimum" type="number" min="0" step="0.1" value="0"></label>
+          <label>排序<select id="sort"><option value="previousTurnover">昨日成交额</option>
+            <option value="todayTurnover">今日成交额</option><option value="returnPct">涨跌幅</option>
+            <option value="lastPrice">最新价</option></select></label>
+          <label>顺序<select id="direction"><option value="desc">从高到低</option>
+            <option value="asc">从低到高</option></select></label>
+          <button id="reset" type="button">重置</button>
+        </form>
+        <div class="table-scroll"><table><caption class="sr-only">沪深 A 股行情列表，成交额单位为亿元</caption>
+          <thead><tr><th scope="col">股票</th><th scope="col">最新价</th><th scope="col">涨跌幅</th>
+            <th scope="col">昨日成交额（亿）</th><th scope="col">今日成交额（亿）</th>
+            <th scope="col">行业 / 概念</th><th scope="col">交易状态</th><th scope="col">详情</th></tr></thead>
+          <tbody id="stock-rows"></tbody>
+        </table></div>
+        <div class="pagination"><span id="page-summary" aria-live="polite"></span><div>
+          <button id="previous" type="button">上一页</button><button id="next" type="button">下一页</button>
+        </div></div>
+      </section>
+      <section id="data" aria-labelledby="data-title"><div class="section-heading"><h2 id="data-title">数据状态</h2>
+        <span class="muted">保留最近成功快照</span></div><div id="modules" class="module-grid"></div></section>
+      <footer>缺失表示来源未提供有效值；交易状态尚未校验，统一标注未知。</footer>
+    </main>
+  </div>
+  <dialog id="detail"><div class="section-heading"><h2 id="detail-title">股票详情</h2>
+    <button id="close-detail" type="button" aria-label="关闭股票详情">关闭</button></div><div id="detail-body"></div></dialog>
+</body>
+</html>
