@@ -9,3 +9,9 @@ build/
 *.egg-info/
 .venv/
 outputs/
+node_modules/
+.test-cache*/
+.test-tmp/
+.env
+.env.*
+!.env.example
