@@ -1,0 +1,74 @@
+[
+  {
+    "caseId": "real-stamp-duty",
+    "candidateHash": "fd3d2701b8289da944dd400b1db768046c652f2b5084c09ac54e980e2fb0b93e",
+    "inputHash": "5c58a9fecbe9795b563f36705c3012d8d75626574cfcc3c3e26986ee27b07fa4",
+    "verdict": "accept",
+    "reason": "历史政策事实与正面方向一致；FIN 属传导推断，未被当成原文事实。仅接受语义提取，旧闻准入由时间校验拒绝。",
+    "reviewedAt": "2026-09-12T23:36:00+08:00"
+  },
+  {
+    "caseId": "real-rare-earth",
+    "candidateHash": "8e05183f0758774d29be042ba015a24d65863baa5837a44dd01c756c0fec4ab2",
+    "inputHash": "0c37acab19097ac5e9a09449ce587d7854aa0e267ac65ec4bb709d75b5c5ce1b",
+    "verdict": "review",
+    "reason": "管制对产业链不同环节的方向不一，不能推断全市场风险；板块白名单缺少稀土，需要补充映射。",
+    "reviewedAt": "2026-09-12T23:36:00+08:00"
+  },
+  {
+    "caseId": "real-monetary-retrospective",
+    "candidateHash": "3ce7374dee363ca0f32653b3b4f93c76d435a5794bb845046b64d0266d95a423",
+    "inputHash": "15c8118d9b7fc9fc91994998298e51333a8a72b620a28fb45474fbc703ff7f5f",
+    "verdict": "review",
+    "reason": "引用的降准是季度报告对过去政策的回顾；文章发布时间不能替代事件发生时间，不作为新增催化。已核对原始央行 PDF 地址及摘要，仍维持待核验。",
+    "reviewedAt": "2026-09-12T23:37:56+08:00"
+  },
+  {
+    "caseId": "synthetic-positive",
+    "candidateHash": "7d771007376eb5679983c4ff4cd4a8c5f3f5378ecafcbc99f1a099c1d998f0a3",
+    "inputHash": "cfd12158176ff5b3b147c6f60b6f84802e52ae0a34e43199b1272033847115e6",
+    "verdict": "accept",
+    "reason": "合成语义审查记录，非独立模型评估。",
+    "reviewedAt": "2026-09-08T08:20:00+08:00"
+  },
+  {
+    "caseId": "synthetic-major-risk",
+    "candidateHash": "50fb192d08c78a68f3aa51b6232c667da8c9fa2043d444e640772dd2009202b3",
+    "inputHash": "bbfe0ff54b2f289155cfc719b96b07a515d8508fb0f42d49c1c9ce17015c5f82",
+    "verdict": "accept",
+    "reason": "合成语义审查记录，非独立模型评估。",
+    "reviewedAt": "2026-09-08T08:20:00+08:00"
+  },
+  {
+    "caseId": "synthetic-reprint",
+    "candidateHash": "50fb192d08c78a68f3aa51b6232c667da8c9fa2043d444e640772dd2009202b3",
+    "inputHash": "47a246b13056c5aaa55b95c0f53244b758dd2ccb3f44017f61a0ced0d6d420db",
+    "verdict": "accept",
+    "reason": "合成语义审查记录，非独立模型评估。",
+    "reviewedAt": "2026-09-08T08:20:00+08:00"
+  },
+  {
+    "caseId": "synthetic-fabricated-evidence",
+    "candidateHash": "e334ad6509e2a64c874a4bf0ca8870c67240855d5033e503fe75106a40d3b69a",
+    "inputHash": "7e860f50a0aa7bd3412af686d3462c46aeacd0dd1601713f7fae28fff541c9ef",
+    "verdict": "review",
+    "reason": "合成异常场景，拒绝采纳。",
+    "reviewedAt": "2026-09-08T08:20:00+08:00"
+  },
+  {
+    "caseId": "synthetic-late-output",
+    "candidateHash": "7d771007376eb5679983c4ff4cd4a8c5f3f5378ecafcbc99f1a099c1d998f0a3",
+    "inputHash": "1175a00481b61bdf47216cd096fdd04052c39f12933c0f82c9b51c3764bd5b15",
+    "verdict": "accept",
+    "reason": "合成语义审查记录，非独立模型评估。",
+    "reviewedAt": "2026-09-08T08:52:00+08:00"
+  },
+  {
+    "caseId": "synthetic-injection",
+    "candidateHash": "a98dc3184a700c56a828e3a3811c295609434f6ccbfb73bc42a3a249e1f1dd77",
+    "inputHash": "6b8221a69c8e4bef816e96b3b75f70f7e3d682a7eacae45e2fd4758595a4264f",
+    "verdict": "review",
+    "reason": "合成异常场景，拒绝采纳。",
+    "reviewedAt": "2026-09-08T08:20:00+08:00"
+  }
+]

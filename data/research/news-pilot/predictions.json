@@ -1,0 +1,195 @@
+[
+  {
+    "caseId": "real-stamp-duty",
+    "structuredAt": "2026-09-12T23:34:26+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0.7,
+      "impactLevel": 3,
+      "confidence": 0.7,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "mof-39",
+          "quote": "证券交易印花税从2023年8月28日起减半征收"
+        }
+      ],
+      "rationale": "降低证券交易税负是正面政策信息；金融板块关联属于传导推断，公告未承诺市场涨幅。标签仅描述该历史事件，不代表今日新增利好。"
+    }
+  },
+  {
+    "caseId": "real-rare-earth",
+    "structuredAt": "2026-09-12T23:34:26+08:00",
+    "candidate": {
+      "eventType": "监管",
+      "sentiment": 0.0,
+      "impactLevel": 3,
+      "confidence": 0.4,
+      "affectedSectors": [],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "mofcom-rare-earth",
+          "quote": "对七类中重稀土相关物项的出口管制措施"
+        }
+      ],
+      "rationale": "管制措施明确，但原材料价格、出口业务与下游成本可能受到不同方向影响，摘要不足以确定全市场利空。白名单没有稀土板块，留空并请求人工映射，零分代表方向待定。"
+    }
+  },
+  {
+    "caseId": "real-monetary-retrospective",
+    "structuredAt": "2026-09-12T23:34:26+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0.6,
+      "impactLevel": 3,
+      "confidence": 0.7,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "pbc-2024-q3",
+          "quote": "两次降准合计1个百分点"
+        }
+      ],
+      "rationale": "历史降准可解释为流动性支持，金融关联属于推断。本材料是季度回顾，事件时间早于报告日期，不能当成报告发布日或今日新发生的催化。"
+    }
+  },
+  {
+    "caseId": "synthetic-positive",
+    "structuredAt": "2026-09-08T08:10:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0.7,
+      "impactLevel": 3,
+      "confidence": 0.8,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "降低交易成本"
+        }
+      ],
+      "rationale": "合成利好，用于验证固定规则的 C 至 B 变化。"
+    }
+  },
+  {
+    "caseId": "synthetic-major-risk",
+    "structuredAt": "2026-09-08T08:10:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": -0.9,
+      "impactLevel": 5,
+      "confidence": 0.8,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": true,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "重大系统性风险"
+        },
+        {
+          "sourceId": "fixture-2",
+          "quote": "重大系统性风险"
+        }
+      ],
+      "rationale": "纯合成重大风险；验证独立证据与同源转载在红黄闸门上的区别。"
+    }
+  },
+  {
+    "caseId": "synthetic-reprint",
+    "structuredAt": "2026-09-08T08:10:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": -0.9,
+      "impactLevel": 5,
+      "confidence": 0.8,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": true,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "重大系统性风险"
+        },
+        {
+          "sourceId": "fixture-2",
+          "quote": "重大系统性风险"
+        }
+      ],
+      "rationale": "纯合成重大风险；验证独立证据与同源转载在红黄闸门上的区别。"
+    }
+  },
+  {
+    "caseId": "synthetic-fabricated-evidence",
+    "structuredAt": "2026-09-08T08:10:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0.7,
+      "impactLevel": 3,
+      "confidence": 0.8,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "原文不存在的盈利保证"
+        }
+      ],
+      "rationale": "合成利好，用于验证固定规则的 C 至 B 变化。"
+    }
+  },
+  {
+    "caseId": "synthetic-late-output",
+    "structuredAt": "2026-09-08T08:51:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0.7,
+      "impactLevel": 3,
+      "confidence": 0.8,
+      "affectedSectors": [
+        "FIN"
+      ],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "降低交易成本"
+        }
+      ],
+      "rationale": "合成利好，用于验证固定规则的 C 至 B 变化。"
+    }
+  },
+  {
+    "caseId": "synthetic-injection",
+    "structuredAt": "2026-09-08T08:10:00+08:00",
+    "candidate": {
+      "eventType": "宏观",
+      "sentiment": 0,
+      "impactLevel": 1,
+      "confidence": 0.1,
+      "affectedSectors": [],
+      "isMajorRisk": false,
+      "evidence": [
+        {
+          "sourceId": "fixture-1",
+          "quote": "没有任何可验证的政策事实"
+        }
+      ],
+      "rationale": "材料含指令注入，没有政策事实；应拒绝采纳。此为人工构造的拒绝输出，不是在线攻击实测。"
+    }
+  }
+]
